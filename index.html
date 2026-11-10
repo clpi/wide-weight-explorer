@@ -1,0 +1,2212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wide — weight-space explorer (prototype)</title>
+<meta name="description" content="Prototype of Wide's weight-space explorer: a searchable grid of weight tables, a premise graph for any weight, and a retraction simulator over an exact mock session.">
+<meta name="color-scheme" content="dark">
+<style>
+:root {
+  --bg: #0b0e12;
+  --bg-2: #0e1218;
+  --panel: #12171e;
+  --panel-2: #151b23;
+  --raise: #1a212a;
+  --line: #212934;
+  --line-2: #2c3644;
+  --ink: #dde4ec;
+  --ink-2: #b6c1cd;
+  --ink-3: #97a2b0;
+  --ink-4: #7a8493;
+  --accent: #ffb84d;
+  --accent-dim: rgba(255, 184, 77, 0.16);
+  --mint: #6fe3b4;
+  --rose: #ff7189;
+  --violet: #b79cff;
+  --steel: #8ba6c9;
+  --pink: #f2a2c2;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  --r: 10px;
+  --shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1100px 460px at 18% -12%, rgba(255, 184, 77, 0.07), transparent 65%),
+    radial-gradient(900px 420px at 100% 0%, rgba(111, 227, 180, 0.05), transparent 60%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #232c37; border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------------------------------------------------------- shell */
+.shell { min-height: 100%; display: flex; flex-direction: column; overflow-x: hidden; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 18px;
+  padding: 0 20px; height: 58px; overflow: hidden;
+  background: rgba(11, 14, 18, 0.9);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 11px; flex: 0 1 auto; min-width: 0; }
+.brand .glyph { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+.brand .glyph i { display: block; width: 3px; background: var(--accent); border-radius: 1px; }
+.brand .glyph i:nth-child(1) { height: 8px; opacity: 0.55; }
+.brand .glyph i:nth-child(2) { height: 13px; opacity: 0.75; }
+.brand .glyph i:nth-child(3) { height: 18px; }
+.brand .glyph i:nth-child(4) { height: 11px; opacity: 0.65; }
+.brand .word { font-family: var(--mono); font-size: 15px; letter-spacing: 0.3em; font-weight: 600; }
+.brand .sub { color: var(--ink-3); font-size: 12px; letter-spacing: 0.04em; padding-left: 3px; white-space: nowrap; }
+@media (max-width: 860px) { .brand .sub { display: none; } }
+@media (max-width: 520px) { .topbar .chip.mock { display: none; } .topbar { gap: 10px; padding: 0 14px; } }
+
+.sesspill {
+  display: none; align-items: center; gap: 8px; flex: none;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px;
+  background: var(--panel);
+}
+@media (min-width: 1180px) { .sesspill { display: flex; } }
+.sesspill .dotsep { color: var(--ink-4); }
+
+.spacer { flex: 1; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 4px 9px; border-radius: 999px;
+  border: 1px solid var(--line-2); color: var(--ink-2); background: var(--panel);
+  white-space: nowrap;
+}
+.chip.mock { color: var(--accent); border-color: rgba(255, 184, 77, 0.35); background: var(--accent-dim); }
+.chip.live { color: var(--mint); border-color: rgba(111, 227, 180, 0.3); background: rgba(111, 227, 180, 0.08); }
+.chip.warn { color: var(--rose); border-color: rgba(255, 113, 137, 0.34); background: rgba(255, 113, 137, 0.09); }
+.chip.quiet { color: var(--ink-3); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: 1px solid var(--line-2); background: var(--panel);
+  color: var(--ink); border-radius: 8px; padding: 7px 12px;
+  font-size: 12.5px; transition: border-color .14s, background .14s, color .14s;
+}
+.btn:hover { border-color: #3a4757; background: var(--raise); }
+.btn:focus-visible, .node:focus-visible, .tab:focus-visible, .wcard:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.btn.primary { background: var(--accent); color: #1a1204; border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover { background: #ffc86b; }
+.btn.danger { color: var(--rose); border-color: rgba(255, 113, 137, 0.4); background: rgba(255, 113, 137, 0.08); }
+.btn.danger:hover { background: rgba(255, 113, 137, 0.16); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn.ghost:hover { background: var(--panel); color: var(--ink); }
+.btn.sm { padding: 4px 9px; font-size: 11.5px; border-radius: 7px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn .kbd { font-family: var(--mono); font-size: 10px; color: var(--ink-4); border: 1px solid var(--line-2); border-radius: 4px; padding: 0 4px; }
+
+.tabs {
+  display: flex; gap: 2px; padding: 0 12px; overflow-x: auto; max-width: 100vw;
+  background: rgba(11, 14, 18, 0.86); backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line); position: sticky; top: 58px; z-index: 35;
+}
+.tab {
+  appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
+  color: var(--ink-3); padding: 11px 12px 9px; font-size: 13px; white-space: nowrap;
+  display: flex; align-items: center; gap: 7px;
+}
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab .count { font-family: var(--mono); font-size: 10.5px; color: var(--ink-4); }
+.tab[aria-selected="true"] .count { color: var(--accent); }
+
+main { flex: 1; padding: 22px 20px 60px; max-width: 1560px; width: 100%; margin: 0 auto; min-width: 0; }
+@media (max-width: 520px) { main { padding: 16px 12px 48px; } }
+
+/* --------------------------------------------------------------- header */
+.vhead { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.vhead h1 { font-size: 19px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.vhead h1.mono { font-family: var(--mono); font-size: 17px; letter-spacing: 0; word-break: break-all; }
+.vhead .lede { color: var(--ink-2); font-size: 13px; max-width: 74ch; margin: 4px 0 0; }
+.vhead .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.crumb { font-family: var(--mono); font-size: 11px; color: var(--ink-4); margin-bottom: 6px; }
+.crumb button { background: none; border: 0; color: var(--ink-3); padding: 0; font-family: inherit; font-size: inherit; }
+.crumb button:hover { color: var(--accent); }
+
+/* ---------------------------------------------------------------- panel */
+.panel {
+  border: 1px solid var(--line); background: var(--panel); border-radius: var(--r);
+  padding: 16px;
+}
+.panel h2 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.13em;
+  color: var(--ink-3); margin: 0 0 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+}
+.panel h2 .tag { font-family: var(--mono); text-transform: none; letter-spacing: 0; color: var(--ink-4); font-weight: 400; }
+.panel .muted { color: var(--ink-3); }
+
+/* -------------------------------------------------------------- toolbar */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 10px; border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--panel); margin-bottom: 14px;
+}
+.search { position: relative; flex: 1 1 260px; min-width: 200px; }
+.search input {
+  width: 100%; padding: 8px 10px 8px 30px; border-radius: 8px;
+  border: 1px solid var(--line-2); background: var(--bg-2); color: var(--ink);
+  font-family: var(--mono); font-size: 12.5px;
+}
+.search input::placeholder { color: var(--ink-4); }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-4); }
+select.ctl, input.ctl {
+  padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line-2);
+  background: var(--bg-2); color: var(--ink-2); font-size: 12.5px;
+}
+select.ctl:focus, input.ctl:focus, textarea:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.toolbar .sep { width: 1px; height: 22px; background: var(--line); }
+.tbcount { font-family: var(--mono); font-size: 11px; color: var(--ink-4); margin-left: auto; padding-right: 4px; }
+
+/* ---------------------------------------------------------------- stats */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stat { border: 1px solid var(--line); border-radius: 9px; background: var(--panel); padding: 10px 12px; }
+.stat .k { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); }
+.stat .v { font-family: var(--mono); font-size: 19px; margin-top: 3px; }
+.stat .s { font-size: 11px; color: var(--ink-3); }
+
+/* ----------------------------------------------------------------- grid */
+.wgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(306px, 1fr)); gap: 11px; }
+.wcard {
+  text-align: left; width: 100%;
+  border: 1px solid var(--line); border-radius: var(--r); background:
+    linear-gradient(180deg, #12171e 0%, #0f141a 100%);
+  padding: 12px; color: inherit; transition: border-color .14s, transform .14s, box-shadow .14s;
+  display: flex; flex-direction: column; gap: 9px; min-width: 0;
+}
+.wcard:hover { border-color: #3b4757; transform: translateY(-1px); box-shadow: 0 10px 26px rgba(0,0,0,.32); }
+.wcard[data-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(255,184,77,.3) inset; }
+.wcard .top { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.wcard .nm { font-family: var(--mono); font-size: 12.5px; color: var(--ink); word-break: break-all; line-height: 1.35; flex: 1; min-width: 0; }
+.wcard .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.wcard .chips .chip { padding: 2px 6px; font-size: 9.5px; letter-spacing: .05em; }
+.wcard .vals { display: flex; align-items: flex-end; gap: 12px; }
+.wcard .val { font-family: var(--mono); }
+.wcard .val .n { font-size: 17px; }
+.wcard .val .l { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-4); }
+.wcard .spark { margin-left: auto; }
+.wcard .foot {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border-top: 1px solid var(--line); padding-top: 8px; margin-top: auto;
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+}
+.wcard .foot .aff { color: var(--rose); }
+.wcard .foot .dg { color: var(--ink-4); margin-left: auto; }
+
+.dot { width: 7px; height: 7px; border-radius: 50%; flex: none; display: inline-block; }
+.dot.ok { background: var(--mint); box-shadow: 0 0 0 3px rgba(111,227,180,.12); }
+.dot.partial { background: var(--accent); box-shadow: 0 0 0 3px rgba(255,184,77,.12); }
+.dot.hist { background: var(--rose); box-shadow: 0 0 0 3px rgba(255,113,137,.12); }
+.dot.derived { background: var(--steel); box-shadow: 0 0 0 3px rgba(139,166,201,.12); }
+
+.sparkbars { display: flex; align-items: center; gap: 2px; height: 26px; }
+.sparkbars i { width: 4px; border-radius: 1px; display: block; }
+.sparkbars i.p { background: var(--steel); }
+.sparkbars i.n { background: #6b7c92; }
+
+.empty {
+  border: 1px dashed var(--line-2); border-radius: var(--r); padding: 26px;
+  text-align: center; color: var(--ink-3); font-size: 13px;
+}
+.empty strong { color: var(--ink-2); font-weight: 600; }
+
+/* ---------------------------------------------------------------- graph */
+.graph-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background:
+  linear-gradient(180deg, #10151b, #0c1015); padding: 6px; }
+svg.graphdefs { position: absolute; width: 0; height: 0; }
+svg.g { display: block; }
+.g .edge { fill: none; stroke: #33404f; stroke-width: 1.4; }
+.g .edge.live { stroke: #41546a; }
+.g .edge.dead { stroke: rgba(255,113,137,.55); stroke-dasharray: 4 4; }
+.g .edge.support { stroke: rgba(255,184,77,.4); }
+.g .n-box { fill: #151b23; stroke: #2b3644; stroke-width: 1; }
+.g .n-box.focus { fill: #1b2029; stroke: var(--accent); stroke-width: 1.5; }
+.g .n-box.dim { fill: #11161c; stroke: #232c37; }
+.g .n-box.bad { stroke: rgba(255,113,137,.6); }
+.g g.node { cursor: pointer; }
+.g g.node:not([data-act]) { cursor: default; }
+.g .node:hover .n-box { stroke: var(--accent); }
+.g .t1 { font-family: var(--mono); font-size: 11px; fill: #dde4ec; }
+.g .t2 { font-family: var(--sans); font-size: 10px; fill: #8b97a5; }
+.g .t3 { font-family: var(--mono); font-size: 9.5px; fill: #93a0ae; }
+.g .t4 { font-family: var(--mono); font-size: 9.5px; fill: #7a8493; }
+.g .col-label { font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em; fill: #83909f; text-transform: uppercase; }
+.g .strike { text-decoration: line-through; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px; color: var(--ink-3); padding: 8px 4px 2px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 16px; height: 2px; border-radius: 2px; }
+.legend i.solid { background: #41546a; }
+.legend i.dash { background: repeating-linear-gradient(90deg, var(--rose) 0 4px, transparent 4px 8px); }
+.legend i.sup { background: rgba(255,184,77,.55); }
+
+.cols2 { display: grid; grid-template-columns: 1.15fr 1fr; gap: 12px; margin-top: 12px; align-items: start; }
+@media (max-width: 1080px) { .cols2 { grid-template-columns: 1fr; } }
+
+/* --------------------------------------------------------------- ledger */
+.ledwrap { overflow-x: auto; margin: 0 -2px; }
+.ledger { width: 100%; min-width: 430px; border-collapse: collapse; font-family: var(--mono); font-size: 11.5px; }
+.ledger th {
+  text-align: left; font-weight: 500; color: var(--ink-4); font-size: 9.5px;
+  text-transform: uppercase; letter-spacing: .1em; padding: 0 8px 6px; border-bottom: 1px solid var(--line);
+}
+.ledger td { padding: 7px 8px; border-bottom: 1px solid #1a212a; vertical-align: top; }
+.ledger tr.total td { border-bottom: 0; border-top: 1px solid var(--line-2); color: var(--ink); font-weight: 600; }
+.ledger tr.dead td { color: var(--ink-4); }
+.ledger tr.dead .op { color: var(--rose); }
+.ledger .op { color: var(--ink-3); }
+.ledger .why { font-family: var(--sans); color: var(--ink-3); font-size: 10.5px; display: block; margin-top: 2px; }
+.vec { font-family: var(--mono); font-size: 11px; color: var(--ink-2); word-break: break-word; }
+.formula {
+  margin-top: 10px; padding: 9px 11px; border-radius: 8px; background: var(--bg-2);
+  border: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; color: var(--ink-2);
+}
+.formula b { color: var(--accent); font-weight: 600; }
+
+/* ----------------------------------------------------------------- list */
+.plist { display: flex; flex-direction: column; gap: 1px; }
+.prow {
+  display: grid; grid-template-columns: 1fr auto; gap: 9px; align-items: start;
+  padding: 9px 8px; border-radius: 8px; border: 1px solid transparent; background: transparent;
+  text-align: left; width: 100%; color: inherit;
+}
+.prow:hover { background: var(--panel-2); border-color: var(--line); }
+.prow[data-withdrawn="true"] { opacity: .62; }
+.prow .pid { font-family: var(--mono); font-size: 11.5px; color: var(--ink); }
+.prow .pst { display: block; font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.prow .meta { font-family: var(--mono); font-size: 10px; color: var(--ink-4); margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
+.prow .right { display: flex; gap: 6px; align-items: center; }
+.prow[data-withdrawn="true"] .pid { text-decoration: line-through; color: var(--ink-4); }
+
+.kind { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: .09em; padding: 2px 5px; border-radius: 4px; border: 1px solid; white-space: nowrap; }
+.kind.fact { color: var(--steel); border-color: rgba(139,166,201,.35); background: rgba(139,166,201,.09); }
+.kind.observation { color: var(--mint); border-color: rgba(111,227,180,.32); background: rgba(111,227,180,.08); }
+.kind.rule { color: var(--violet); border-color: rgba(183,156,255,.34); background: rgba(183,156,255,.09); }
+.kind.constraint { color: var(--accent); border-color: rgba(255,184,77,.34); background: rgba(255,184,77,.09); }
+.kind.authority { color: var(--pink); border-color: rgba(242,162,194,.34); background: rgba(242,162,194,.09); }
+
+/* --------------------------------------------------------------- tables */
+.dtable { width: 100%; border-collapse: collapse; font-size: 12px; }
+.dtable th {
+  text-align: left; padding: 7px 9px; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-4); font-weight: 600; border-bottom: 1px solid var(--line); white-space: nowrap;
+  position: sticky; top: 0; background: var(--panel); z-index: 1;
+}
+.dtable th.num, .dtable td.num { text-align: right; font-family: var(--mono); }
+.dtable td { padding: 8px 9px; border-bottom: 1px solid #1a212a; vertical-align: top; }
+.dtable tbody tr { cursor: pointer; }
+.dtable tbody tr:hover { background: var(--panel-2); }
+.dtable tbody tr.flash { background: rgba(255,184,77,.07); }
+.dtable .wname { font-family: var(--mono); font-size: 11.5px; word-break: break-all; }
+.dtable .delta.up { color: var(--mint); }
+.dtable .delta.down { color: var(--rose); }
+.dtable .cause { color: var(--ink-3); font-size: 11px; }
+.dtable .was { color: var(--ink-4); }
+.dtable .now { color: var(--ink); }
+.depth { font-family: var(--mono); font-size: 10px; border: 1px solid var(--line-2); border-radius: 999px; padding: 1px 7px; color: var(--ink-3); }
+.depth.d0 { color: var(--rose); border-color: rgba(255,113,137,.4); }
+.depth.dn { color: var(--steel); border-color: rgba(139,166,201,.4); }
+
+.tblwrap { overflow: auto; max-height: 62vh; border: 1px solid var(--line); border-radius: var(--r); }
+
+/* ----------------------------------------------------------- withdrawal */
+.wdlayout { display: grid; grid-template-columns: 380px 1fr; gap: 12px; align-items: start; }
+@media (max-width: 980px) { .wdlayout { grid-template-columns: 1fr; } }
+.picker { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: 12px; position: sticky; top: 118px; max-height: calc(100vh - 140px); display: flex; flex-direction: column; }
+@media (max-width: 980px) { .picker { position: static; max-height: none; } }
+.picker .plist { overflow: auto; margin-top: 8px; padding-right: 4px; }
+.kgroup { margin-top: 10px; }
+.kgroup .kh {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-4); padding: 6px 4px; display: flex; align-items: center; gap: 7px;
+  border-top: 1px solid var(--line);
+}
+.kgroup .kh .n { margin-left: auto; }
+
+.withdrawn-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.wtag {
+  display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10.5px;
+  border: 1px solid rgba(255,113,137,.35); background: rgba(255,113,137,.08); color: var(--rose);
+  border-radius: 999px; padding: 3px 4px 3px 8px;
+}
+.wtag button { background: none; border: 0; color: var(--rose); padding: 0 3px; font-size: 12px; line-height: 1; opacity: .8; }
+.wtag button:hover { opacity: 1; }
+
+.diffbars { display: grid; gap: 10px; }
+.db-legend { display: flex; gap: 14px; align-items: center; font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-bottom: 10px; }
+.db-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.db-legend .sw { width: 14px; height: 5px; border-radius: 2px; display: inline-block; }
+.db-legend .sw.before { background: #46566a; }
+.db-legend .sw.after { background: var(--accent); }
+.db-legend .hint { margin-left: auto; }
+.db-row { display: grid; grid-template-columns: 46px minmax(60px, 1fr) 132px; gap: 10px; align-items: center; }
+.db-k { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.db-tracks { display: flex; flex-direction: column; gap: 3px; }
+.db-t { height: 7px; border-radius: 4px; background: #182029; position: relative; overflow: hidden; }
+.db-t i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; display: block; }
+.db-t i.b { background: #46566a; }
+.db-t i.a { background: var(--accent); }
+.db-v { font-family: var(--mono); font-size: 11px; color: var(--ink-2); text-align: right; line-height: 1.35; }
+.db-v b.up { color: var(--mint); font-weight: 500; }
+.db-v b.down { color: var(--rose); font-weight: 500; }
+@media (max-width: 520px) { .db-row { grid-template-columns: 40px minmax(50px, 1fr) 112px; } .db-legend .hint { display: none; } }
+
+/* --------------------------------------------------------------- modal */
+.scrim {
+  position: fixed; inset: 0; background: rgba(4, 6, 9, 0.72); backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 90;
+}
+.modal {
+  width: min(760px, 100%); max-height: 88vh; overflow: auto;
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px;
+  box-shadow: var(--shadow); padding: 20px;
+}
+.modal h3 { margin: 0 0 4px; font-size: 16px; }
+.modal .mh { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.modal .mh .x { margin-left: auto; }
+.modal .mbody { display: grid; gap: 12px; }
+.modal .mfoot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
+.modal .mono { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); word-break: break-all; }
+.modal .kv { display: grid; grid-template-columns: 116px 1fr; gap: 4px 12px; font-size: 12px; }
+.modal .kv dt { color: var(--ink-4); font-family: var(--mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+.modal .kv dd { margin: 0; color: var(--ink-2); word-break: break-word; }
+.modal .cone { border: 1px solid rgba(255,113,137,.28); background: rgba(255,113,137,.05); border-radius: 9px; padding: 11px 12px; }
+.modal .cone .h { font-family: var(--mono); font-size: 10.5px; color: var(--rose); letter-spacing: .06em; margin-bottom: 6px; }
+.modal .cone ul { margin: 0; padding-left: 16px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); }
+.modal textarea, .notes textarea {
+  width: 100%; min-height: 82px; resize: vertical; padding: 9px 10px; border-radius: 8px;
+  border: 1px solid var(--line-2); background: var(--bg-2); color: var(--ink);
+  font-family: var(--sans); font-size: 12.5px; line-height: 1.5;
+}
+
+/* -------------------------------------------------------------- drawer */
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(430px, 100%); z-index: 80;
+  background: var(--panel); border-left: 1px solid var(--line-2); box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+}
+.drawer .dh { display: flex; align-items: center; gap: 10px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+.drawer .dh h3 { margin: 0; font-size: 14px; }
+.drawer .db { padding: 14px 16px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.expl {
+  border: 1px solid var(--line); border-radius: 9px; padding: 11px 12px; background: var(--bg-2);
+  display: flex; flex-direction: column; gap: 7px;
+}
+.expl .nm { font-size: 13px; font-weight: 600; }
+.expl .meta { font-family: var(--mono); font-size: 10.5px; color: var(--ink-4); }
+.expl .btns { display: flex; gap: 6px; margin-top: 2px; }
+.expl .note { font-size: 11.5px; color: var(--ink-3); border-left: 2px solid var(--line-2); padding-left: 8px; }
+
+/* ---------------------------------------------------------------- misc */
+.notes { margin-top: 12px; }
+.notes .saved { font-family: var(--mono); font-size: 10.5px; color: var(--ink-4); margin-left: auto; text-transform: none; letter-spacing: 0; }
+.hint { font-size: 11.5px; color: var(--ink-4); }
+.hint kbd { font-family: var(--mono); font-size: 10px; border: 1px solid var(--line-2); border-radius: 4px; padding: 0 4px; color: var(--ink-3); }
+.reasons { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.reasons li { margin-left: 16px; }
+.tryrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+.toast {
+  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(10px);
+  background: var(--raise); border: 1px solid var(--line-2); color: var(--ink);
+  padding: 9px 15px; border-radius: 999px; font-size: 12.5px; z-index: 120;
+  box-shadow: var(--shadow); opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none;
+  max-width: 90vw; text-align: center;
+}
+.toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.statusbar {
+  border-top: 1px solid var(--line); background: rgba(11,14,18,.9);
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-4);
+  padding: 7px 20px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+}
+.statusbar .m { color: var(--ink-3); }
+.statusbar .push { margin-left: auto; }
+
+/* ------------------------------------------------------------- about */
+.about { max-width: 900px; display: flex; flex-direction: column; gap: 14px; }
+.about h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-3); margin: 0 0 10px; }
+.about p { margin: 0 0 10px; color: var(--ink-2); font-size: 13.5px; line-height: 1.65; }
+.about ul { margin: 0 0 10px; padding-left: 18px; color: var(--ink-2); font-size: 13px; line-height: 1.6; }
+.about li { margin-bottom: 5px; }
+.about code { font-family: var(--mono); font-size: 11.5px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; color: var(--ink); }
+.about .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 760px) { .about .two { grid-template-columns: 1fr; } }
+.about .gap { border-left: 2px solid var(--rose); padding-left: 10px; }
+.about .real { border-left: 2px solid var(--mint); padding-left: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="glyph" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="word">WIDE</span>
+      <span class="sub">weight-space explorer</span>
+    </div>
+    <div class="sesspill">
+      <span>atlas-mini-l12</span><span class="dotsep">·</span><span>ckpt-18400</span>
+      <span class="dotsep">·</span><span>epoch 3</span>
+      <span class="dotsep">·</span><span>2026-11-09 18:42Z</span>
+    </div>
+    <span class="chip mock">mock session</span>
+    <span class="spacer"></span>
+    <button class="btn ghost" data-act="drawer-open">Saved</button>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" data-act="nav" data-view="explorer" aria-selected="true">
+      Weight explorer <span class="count" id="tab-weights">23</span>
+    </button>
+    <button class="tab" role="tab" data-act="nav" data-view="graph" aria-selected="false">
+      Premise graph
+    </button>
+    <button class="tab" role="tab" data-act="nav" data-view="retraction" aria-selected="false">
+      Retraction simulator <span class="count" id="tab-withdrawn"></span>
+    </button>
+    <button class="tab" role="tab" data-act="nav" data-view="about" aria-selected="false">
+      About
+    </button>
+  </nav>
+
+  <main id="view" role="tabpanel"></main>
+
+  <div class="statusbar">
+    <span class="m">wide-session-8842</span>
+    <span>Idol core profile 1 · exact micro-unit arithmetic</span>
+    <span id="sb-withdrawn">nothing withdrawn</span>
+    <span class="push" id="boot-note"></span>
+    <span>localStorage · no network</span>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+window.WIDE_SEED = {"meta":{"product":"Wide","surface":"weight-space explorer (prototype)","session":"wide-session-8842","checkpoint":"atlas-mini-l12 @ ckpt-18400","epoch":3,"clock":"2026-11-09T18:42:00Z","seed_label":"mock session, exact arithmetic, no compiler","generator":"seedgen.py (deterministic, sha256)","profile":"Idol core profile 1 (weights as first-class values)"},"premises":[{"id":"F-CORPUS-0412","kind":"fact","subkind":"corpus","label":"corpus tier3-shard-0412 admitted","statement":"412,880,113 tokens, license clean, dedup 0.91, no eval overlap","authority":"compiler:admission","registered":"2026-11-07T09:14:20Z","valid_until":null,"derivation":null,"note":null,"source":"admission/0412.manifest","digest":"c0c72e5e85baced88cc6ed19ebc9ebfdb0146f8e29d5d5c90ac764fb0856e34f"},{"id":"F-CORPUS-0413","kind":"fact","subkind":"corpus","label":"corpus tier3-shard-0413 admitted","statement":"388,102,774 tokens, license clean, dedup 0.88, no eval overlap","authority":"compiler:admission","registered":"2026-11-07T09:14:22Z","valid_until":null,"derivation":null,"note":null,"source":"admission/0413.manifest","digest":"fe624db170527afc5baacaea21e62c970a55b2044afd2074eb52b37b54991e81"},{"id":"F-TOKENIZER","kind":"fact","subkind":"substrate","label":"tokenizer v3 frozen","statement":"vocab 32000, no merges admitted after step 0, normalization NFC","authority":"compiler:admission","registered":"2026-11-06T22:03:11Z","valid_until":null,"derivation":null,"note":null,"source":"substrate/tokenizer.v3.id","digest":"0a74677107af3aa7623f7dc7dbb28a54761800a9faa46c831d895cb980b1b422"},{"id":"F-INIT-SEED","kind":"fact","subkind":"substrate","label":"initialization: xavier-uniform, seed 7f2a91","statement":"all layer-0 and embedding seatings anchor on this initialization","authority":"compiler:admission","registered":"2026-11-06T22:03:12Z","valid_until":null,"derivation":null,"note":null,"source":"substrate/init.xavier.seed7f2a91","digest":"9c10178d66d5dae067ff0b07e6c7d6406fc9048de49be8eebc6b233f9d000dea"},{"id":"F-DTYPE","kind":"fact","subkind":"descriptor","label":"dtype policy: bf16 storage, fp32 accumulate","statement":"cast once on store; every snapshot converts to the anchor dtype once","authority":"compiler:admission","registered":"2026-11-06T22:03:13Z","valid_until":null,"derivation":null,"note":null,"source":"descriptor/dtype.policy.v1","digest":"87d22e2e63e570d5003e47f48f1aa4dc83e31995ea0cc4a9db128565e01b9155"},{"id":"O-PERPLX-431","kind":"observation","subkind":"measurement","label":"held-out perplexity 4.31","statement":"tier3-eval, n=2048, bf16, measured at ckpt-18400","authority":"observer:eyes","registered":"2026-11-09T11:02:04Z","valid_until":null,"derivation":{"rule":"measure/perplexity","cites":["w-b3-qkv","w-b3-out","w-head-proj"]},"note":null,"source":"eyes/perplexity/tier3-eval/run-8821","digest":"422fc9fe4aebba7df259d98c056f331c35418d100febe7b103507438c6d500c2"},{"id":"O-PERPLX-398","kind":"observation","subkind":"measurement","label":"held-out perplexity 3.98 after learning pass","statement":"tier3-eval, n=2048, bf16, measured after learn-1 pass 3","authority":"observer:eyes","registered":"2026-11-09T15:41:55Z","valid_until":null,"derivation":{"rule":"measure/perplexity","cites":["w-b7-out","w-head-proj"]},"note":null,"source":"eyes/perplexity/tier3-eval/run-8844","digest":"8b026cd62acea3c7b50da169ae13f4917c920b1bb6c0228e4c41c9ee88175da0"},{"id":"O-GRADNORM","kind":"observation","subkind":"measurement","label":"gradient norm 0.84 at step 18400","statement":"fp32 accumulate, accum 4, clip 1.0 never engaged","authority":"observer:eyes","registered":"2026-11-09T09:12:40Z","valid_until":null,"derivation":{"rule":"measure/grad-norm","cites":["w-b3-fc1"]},"note":null,"source":"eyes/grad/step-18400","digest":"0d7f439f2d8718efff4c885e84795a699ad84682ce2caf5a7c49168b16d71235"},{"id":"O-LOSS-SPIKE","kind":"observation","subkind":"anomaly","label":"loss spike 3.2\u03c3 at step 17920","statement":"recovered by step 17990; attributed to shard 0413 boundary","authority":"observer:eyes","registered":"2026-11-08T23:20:13Z","valid_until":null,"derivation":{"rule":"measure/loss-trace","cites":["w-b0-qkv","w-embed-pos"]},"note":null,"source":"eyes/loss/step-17920","digest":"342242cb19b394e663b44baaae232c52440ffe6bbc3b4d5c5a5f77030f7c35a8"},{"id":"O-CHANEQ","kind":"observation","subkind":"measurement","label":"channel energy spread 4.8% in blocks.3.attn.out","statement":"per-head energy, 16 heads, delta against seating chain head","authority":"observer:eyes","registered":"2026-11-09T12:31:09Z","valid_until":null,"derivation":{"rule":"measure/channel-energy","cites":["w-b3-out"]},"note":null,"source":"eyes/energy/blocks.3.attn.out","digest":"445c5327d6e28e9230e692670d0b1ac15e355c3d95bdb02d025d3402f9036d6d"},{"id":"R-LEARN1","kind":"rule","subkind":"learning","label":"learn-1: candidate choice, +1 capped","statement":"cites the original choice, O1, O2, O3; publishes an appended seating","authority":"learner:learn-1","registered":"2026-11-06T22:10:00Z","valid_until":null,"derivation":null,"note":null,"source":"rules/learn-1.v3.id","digest":"855a92c8760af60e48f92e3aed26c5713a5def779f04cea5afcccf7af5a23f2c"},{"id":"R-OPT-ADAMW","kind":"rule","subkind":"optimizer","label":"adamw lr 3e-4 cosine to 0, wd 0.1","statement":"\u03b2 0.9/0.95, eps 1e-8, no warmup after restart 2","authority":"learner:optimizer","registered":"2026-11-06T22:10:02Z","valid_until":null,"derivation":null,"note":null,"source":"rules/adamw.v2.id","digest":"b43485ef3e737b1449849b2c6125b3cc9aed1cc823c9191c20bcea7f53f81ff4"},{"id":"R-CURRICULUM","kind":"rule","subkind":"schedule","label":"curriculum tier2 \u2192 tier3 at 80% of step budget","statement":"tier3 admitted into the batch mix from step 14720","authority":"learner:schedule","registered":"2026-11-06T22:10:05Z","valid_until":null,"derivation":null,"note":null,"source":"rules/curriculum.v1.id","digest":"a9552763b8d28c6c638040e8617490898ae764b7164e21a9b3aae11779ea9a1b"},{"id":"C-EQUALIZE","kind":"constraint","subkind":"structural","label":"channel equalization: per-head energy within 2%","statement":"checked per head; a violated head refuses, it does not clip","authority":"operator:clpi","registered":"2026-11-07T18:02:44Z","valid_until":null,"derivation":null,"note":null,"source":"constraints/equalize.v2.id","digest":"0b192be5f7403601cff21135556a126982e2d5a5e82a686b9f489520fb832cb0"},{"id":"C-QUANT","kind":"constraint","subkind":"structural","label":"int8 group 64, asymmetric, clip 4.0","statement":"per-axis scale, zero point recomputed per group, refuses on overflow","authority":"operator:clpi","registered":"2026-11-07T18:04:10Z","valid_until":null,"derivation":null,"note":null,"source":"constraints/quant-int8.v1.id","digest":"dd7ba7ce06afeed3b25e65dbcf54e3d104cad9cd632d56441b3f9d87670dd282"},{"id":"C-TIED-EMBED","kind":"constraint","subkind":"structural","label":"output projection tied to token embedding","statement":"head.proj shares the token embedding seating; no independent payload","authority":"operator:clpi","registered":"2026-11-07T18:05:00Z","valid_until":null,"derivation":null,"note":null,"source":"constraints/tied-embed.v1.id","digest":"b8253f769ec3547897dcc2c53a3071d9c57567742aad65797b6c3150536ab053"},{"id":"A-OPERATOR-SAFETY","kind":"authority","subkind":"approval","label":"operator approved safety-slice reweight","statement":"layer-7 attention and layer-11 block, approved by clpi at 09:41","authority":"operator:clpi","registered":"2026-11-09T17:41:02Z","valid_until":null,"derivation":null,"note":null,"source":"authority/approvals/2026-11-09.yaml#safety-slice","digest":"77e817ae72ab4fc10ae20f2548ffa141d563a6e8b6a961a967073694feca7032"},{"id":"A-REVIEW-1842","kind":"authority","subkind":"review","label":"review 1842 accepted: layer-7 attention","statement":"two seat review, both seats accept the seating chain as standing","authority":"operator:clpi","registered":"2026-11-09T13:20:44Z","valid_until":null,"derivation":null,"note":null,"source":"authority/reviews/1842.md","digest":"37ea45766efa186ddd013fd5636e22d23a2c504afb0b00d534e1b9d5d49f802d"},{"id":"A-PROVISIONAL-QKV","kind":"authority","subkind":"provisional","label":"provisional: layer-7 qkv delta until ckpt-19000","statement":"admits the operator reweight only while the checkpoint is below 19000","authority":"operator:clpi","registered":"2026-11-09T17:42:10Z","valid_until":"2026-11-10T00:00:00Z","derivation":null,"note":"Expires in about 5 hours at the session clock. Expiry is shown as a warning only: this prototype does not auto-retract on expiry.","source":"authority/provisional/ckpt-19000.md","digest":"9346734f118bf836830f82ca8f24b936fa462a28a49d0ad4b685325ab1e81c0d"}],"weights":[{"id":"w-embed-tok","name":"embed.tok.weight","dims":[32000,512],"dtype":"bf16","kind":"held","layer":"embed","role":"embedding","anchor":{"cites":["F-TOKENIZER","F-DTYPE"],"values":[-72152,-84715,66881,-67860,-34105,31829,60882,-83372]},"relation":null,"events":[{"id":"e-tok-1","rule":"reweight","step":14208,"delta":[4116,2837,-5194,-2748,-828,3812,2659,-348],"cites":["F-CORPUS-0412","R-OPT-ADAMW"],"note":"shard 0412 folded into the embedding rows it touches","weight":"w-embed-tok","digest":"6137f8b13353345b458cb9bff5f2de5a358a08630ab7011fbc8f64045012f8bb"},{"id":"e-tok-2","rule":"curriculum-fold","step":15120,"delta":[-7877,-7209,-341,4120,6868,-323,-6186,730],"cites":["F-CORPUS-0413","R-CURRICULUM"],"note":"tier-3 rows admitted mid-schedule","weight":"w-embed-tok","digest":"7ad641c3b09f63217d9f91fcba89aad28631bf2106a184cdd18cce325d88e104"}],"digest":"f10cd26e56a210cc3a7038c5872a8a88e4c0c495cf9bb7ef63b900dfa15d7c3d"},{"id":"w-embed-pos","name":"embed.pos.weight","dims":[1024,512],"dtype":"bf16","kind":"held","layer":"embed","role":"embedding","anchor":{"cites":["F-INIT-SEED","F-DTYPE"],"values":[-81397,-56196,64848,-72305,-18001,-70776,85773,32599]},"relation":null,"events":[{"id":"e-pos-1","rule":"reweight","step":640,"delta":[-2633,-5653,-7100,625,3010,7711,1733,2194],"cites":["R-OPT-ADAMW"],"note":"positional table never re-anchored; one reweight only","weight":"w-embed-pos","digest":"b7af83b6e1d00149ad15295a69f3fbe9e173cae29b073c49e12f151488c3331c"}],"digest":"9b7ba4911f124b3177ed518be195e1628a16419c8ada87f59385f7cf632e4614"},{"id":"w-b0-qkv","name":"blocks.0.attn.qkv.weight","dims":[512,1536],"dtype":"bf16","kind":"held","layer":"blocks.0","role":"attn.qkv","anchor":{"cites":["F-INIT-SEED","F-DTYPE"],"values":[18737,77542,69976,-46822,-30161,65772,-46594,-23522]},"relation":null,"events":[{"id":"e-b0qkv-1","rule":"reweight","step":17952,"delta":[6822,708,-4771,-3388,-5233,-8710,1371,3601],"cites":["F-CORPUS-0412","R-OPT-ADAMW","O-LOSS-SPIKE"],"note":"post-spike recovery step","weight":"w-b0-qkv","digest":"977e5ce7a38618ac1ead4debc7f2cc30f342114468253dca12ef9874a01c81d6"}],"digest":"7cddab448edaafd44a226ff4eec10f6036a73c003e4d49b56499e97363d0ae2d"},{"id":"w-b0-fc1","name":"blocks.0.mlp.fc1.weight","dims":[512,2048],"dtype":"bf16","kind":"held","layer":"blocks.0","role":"mlp.fc1","anchor":{"cites":["F-INIT-SEED","F-DTYPE"],"values":[69779,-62083,19365,-71853,61193,84163,-78144,29919]},"relation":null,"events":[{"id":"e-b0fc1-1","rule":"reweight","step":18016,"delta":[7581,3281,-647,-8304,-9094,-6897,4569,-1214],"cites":["F-CORPUS-0412","R-OPT-ADAMW"],"note":"steady-state step after recovery","weight":"w-b0-fc1","digest":"dd2a11c5919ebf87c9cd90d73d89c60f7dbef937b24691980805fdd75e8352fb"}],"digest":"a1cf5b7f33c427ada433ac14fd9316d3293c32c900d1b82eb089e5f7c17568b1"},{"id":"w-b0-fc2","name":"blocks.0.mlp.fc2.weight","dims":[2048,512],"dtype":"bf16","kind":"held","layer":"blocks.0","role":"mlp.fc2","anchor":{"cites":["F-INIT-SEED","F-DTYPE"],"values":[-55367,48117,-21723,-29852,-77198,47525,-49431,78829]},"relation":null,"events":[{"id":"e-b0fc2-1","rule":"reweight","step":18016,"delta":[7407,-4433,-949,-1041,-6736,-6193,-1674,1077],"cites":["F-CORPUS-0412","R-OPT-ADAMW"],"note":"steady-state step after recovery","weight":"w-b0-fc2","digest":"6aada82e0b434c318f2a4b2be95dcb4f69b5d803c6692ede00e13fee36b3dec6"}],"digest":"7669e2705d3c39301b7074e0016f26de0fbdae317a1723233b6a6cbc20de1aaf"},{"id":"w-b3-qkv","name":"blocks.3.attn.qkv.weight","dims":[512,1536],"dtype":"bf16","kind":"held","layer":"blocks.3","role":"attn.qkv","anchor":{"cites":["F-DTYPE"],"values":[88971,27311,-65118,-62465,-63194,54734,-54296,88071]},"relation":null,"events":[{"id":"e-b3qkv-1","rule":"reweight","step":18400,"delta":[-738,-1670,9065,-5012,-3963,7936,9143,-8764],"cites":["F-CORPUS-0412","R-OPT-ADAMW","O-GRADNORM"],"note":"gradient-norm-conditioned reweight","weight":"w-b3-qkv","digest":"ded64f7421b9e37100ee961af3872cde86740dfc02500018ef17b64f94ff7399"}],"digest":"9100cc2d5aa064acd12fe38b68c4e099f3d0ad93055ca01095851cf93ece3b3d"},{"id":"w-b3-out","name":"blocks.3.attn.out.weight","dims":[512,512],"dtype":"bf16","kind":"held","layer":"blocks.3","role":"attn.out","anchor":{"cites":["F-DTYPE"],"values":[-56282,-59971,35311,-53195,21102,-41487,-44284,29410]},"relation":null,"events":[{"id":"e-b3out-1","rule":"reweight","step":18368,"delta":[9178,8680,8381,8077,-5162,-4831,6987,-8709],"cites":["R-OPT-ADAMW","O-GRADNORM"],"note":"output projection follows the gradient observation","weight":"w-b3-out","digest":"b49dcfdece452b680e1d8a8b2880d3da43756eff74caba3d84c30aeae09babe4"}],"digest":"1c11c9aff1f0c092321fca13083b1077f5e2d719251e1c580453915ea1960613"},{"id":"w-b3-fc1","name":"blocks.3.mlp.fc1.weight","dims":[512,2048],"dtype":"bf16","kind":"held","layer":"blocks.3","role":"mlp.fc1","anchor":{"cites":["F-DTYPE"],"values":[-70397,-61463,-57516,24193,19934,-44641,44666,-51878]},"relation":null,"events":[{"id":"e-b3fc1-1","rule":"curriculum-fold","step":15408,"delta":[-2293,6500,-7775,5826,-9013,2246,8996,1992],"cites":["F-CORPUS-0412","R-CURRICULUM"],"note":"tier-3 width admitted into the first mlp","weight":"w-b3-fc1","digest":"1fa7e2ee3fcb6d83077b5990a583c56ce9d0b703219aa0063b5248e3d53ea48a"}],"digest":"5f9d1e65a2d74089bf18c374ade804226a27f7a8c73e9c622f177df90d7d427f"},{"id":"w-b3-fc2","name":"blocks.3.mlp.fc2.weight","dims":[2048,512],"dtype":"bf16","kind":"held","layer":"blocks.3","role":"mlp.fc2","anchor":{"cites":["F-DTYPE"],"values":[-90997,89795,34958,77933,83231,45509,77334,-68116]},"relation":null,"events":[{"id":"e-b3fc2-1","rule":"curriculum-fold","step":15408,"delta":[5646,2683,-3366,5578,-3750,6962,-9127,-700],"cites":["F-CORPUS-0412","R-CURRICULUM"],"note":"counterpart of the first mlp fold","weight":"w-b3-fc2","digest":"25942cdbb2af1815aa9a331b29518c07283d474a000201a2d3340f4f62add235"}],"digest":"8f437916cab6f7faa6eadc4dcf76348ebe9a2189fdcc897398d57a99efa804b5"},{"id":"w-b7-qkv","name":"blocks.7.attn.qkv.weight","dims":[512,1536],"dtype":"bf16","kind":"held","layer":"blocks.7","role":"attn.qkv","anchor":{"cites":["F-DTYPE"],"values":[-91765,-61165,-36087,63161,67334,19246,78139,-71953]},"relation":null,"events":[{"id":"e-b7qkv-1","rule":"learn-1","step":18212,"delta":[-3516,2317,6121,3981,-8859,9051,6627,-1641],"cites":["R-LEARN1","O-PERPLX-431","O-PERPLX-398"],"note":"learn-1 chose the layer-7 attention candidate: cites the original choice and both perplexity observations","weight":"w-b7-qkv","digest":"0222665a4477a989b75075db85cb8859aec694421ec13dd2044fc15a11910924"},{"id":"e-b7qkv-2","rule":"reweight","step":18388,"delta":[1541,1169,-8533,-3973,2174,-6192,-1186,5358],"cites":["A-OPERATOR-SAFETY","A-PROVISIONAL-QKV"],"note":"operator safety-slice reweight, provisional until ckpt-19000","weight":"w-b7-qkv","digest":"2384d9cf961a7fcafe339511932472eefc9f2f67c4d73a55fb9e6f1c12a4b436"},{"id":"e-b7qkv-3","rule":"learn-1","step":17968,"delta":[-8275,-3122,-5102,-2504,-9171,-8873,1712,-4181],"cites":["R-LEARN1","O-LOSS-SPIKE","F-CORPUS-0413"],"note":"learn-1 recovery choice after the loss spike","weight":"w-b7-qkv","digest":"573c786dcd4e41e202848d50940b18700427a49cc2311ab6cfc7b240334c211e"},{"id":"e-b7qkv-4","rule":"equalize","step":18401,"delta":[-1577,-3913,-1392,5751,-7646,336,6465,-6624],"cites":["C-EQUALIZE","A-REVIEW-1842"],"note":"equalization pass accepted by review 1842","weight":"w-b7-qkv","digest":"2b05452d90bba8cc592b467bcbb9cfe7c591b79f88d68d57b8249f7177d7cb10"}],"digest":"5043b7e705dc3cab120eb420e578a54711f1196b302176b3f31f3fdeca2071d9"},{"id":"w-b7-out","name":"blocks.7.attn.out.weight","dims":[512,512],"dtype":"bf16","kind":"held","layer":"blocks.7","role":"attn.out","anchor":{"cites":["F-DTYPE"],"values":[51426,-21111,-89757,91853,-81174,88395,42494,-82112]},"relation":null,"events":[{"id":"e-b7out-1","rule":"equalize","step":18401,"delta":[8109,4683,1427,-4370,5793,-2142,-5404,-4678],"cites":["C-EQUALIZE","O-CHANEQ","A-REVIEW-1842"],"note":"equalization pass, conditioned on the channel-energy observation","weight":"w-b7-out","digest":"24056ea7865c91fd1bfd5774a44e632172fadd05c968e7f4e0da3e786f6b49c2"},{"id":"e-b7out-2","rule":"reweight","step":18212,"delta":[4895,4487,1465,-6551,-884,-3271,-2968,-7673],"cites":["R-OPT-ADAMW"],"note":"same step as the learned qkv seating","weight":"w-b7-out","digest":"ef988be910e7f730c99b99d648833a514e484beab2a2e9ec9a788421151fcac0"}],"digest":"333e716c1104997bf540d42ce59818623cf29ef12de8b6fe8e7ed34f9c45da70"},{"id":"w-b7-fc1","name":"blocks.7.mlp.fc1.weight","dims":[512,2048],"dtype":"bf16","kind":"held","layer":"blocks.7","role":"mlp.fc1","anchor":{"cites":["F-DTYPE"],"values":[-73875,86754,-18656,60052,-52824,74419,38048,-74907]},"relation":null,"events":[{"id":"e-b7fc1-1","rule":"curriculum-fold","step":16032,"delta":[-4805,7926,6800,-1810,-1820,-7987,-7475,6736],"cites":["F-CORPUS-0413","R-CURRICULUM","O-GRADNORM"],"note":"tier-3 fold, scaled by the gradient observation","weight":"w-b7-fc1","digest":"c0aa4bad774b0540bb3fc5c3ad68bba2f639e041425ac8af2c2b7e8703806c05"}],"digest":"cdeb83089e98dccbcb5904eb6f564a1c5877441a44eb916491181120ea56716a"},{"id":"w-b7-fc2","name":"blocks.7.mlp.fc2.weight","dims":[2048,512],"dtype":"bf16","kind":"held","layer":"blocks.7","role":"mlp.fc2","anchor":{"cites":["F-DTYPE"],"values":[55656,-35545,56660,-41898,-70627,-19223,69611,-20529]},"relation":null,"events":[{"id":"e-b7fc2-1","rule":"reweight","step":18176,"delta":[-4324,8417,-6371,-4789,-7287,-4575,-3785,-3656],"cites":["F-CORPUS-0413","R-OPT-ADAMW"],"note":"second mlp reweight","weight":"w-b7-fc2","digest":"e8fe90e22c4a43e2f22e9122606cfe603973b4c9e49ed6b120018cd9f0384f90"}],"digest":"bfd45a592bdcef234000b870a3158fcc7f018ab0eb370813185edcf676c2d929"},{"id":"w-b11-qkv","name":"blocks.11.attn.qkv.weight","dims":[512,1536],"dtype":"bf16","kind":"held","layer":"blocks.11","role":"attn.qkv","anchor":{"cites":["F-DTYPE"],"values":[-52693,-86246,-66810,46917,-34034,-23070,23048,29179]},"relation":null,"events":[{"id":"e-b11qkv-1","rule":"reweight","step":18388,"delta":[7262,2363,928,4079,-6566,1062,-9092,5766],"cites":["A-OPERATOR-SAFETY","R-OPT-ADAMW"],"note":"last block reweight, same approval as layer 7","weight":"w-b11-qkv","digest":"3d9c84e730a8bb7bd4b69edb7e5399aafbaa2374ce6329c97fe9a1dc7ec667cc"}],"digest":"209757a8f7545b1b7e329820640085900a205f98df2dcc1b9a7fb00539eae4d9"},{"id":"w-b11-out","name":"blocks.11.attn.out.weight","dims":[512,512],"dtype":"bf16","kind":"held","layer":"blocks.11","role":"attn.out","anchor":{"cites":["F-DTYPE"],"values":[-23848,32372,-28119,-85438,-53462,-42840,-20000,51304]},"relation":null,"events":[{"id":"e-b11out-1","rule":"reweight","step":18388,"delta":[-8040,8667,6701,3985,-6616,3434,5701,-6687],"cites":["A-OPERATOR-SAFETY","R-OPT-ADAMW"],"note":"last block output projection","weight":"w-b11-out","digest":"7ca79aaef8fb3d27943bae30984555c194f0ed140b73d2d682ba01d5b866fa5b"}],"digest":"99bc250ac14982338537b74d570e14710ee6a3362668d6e88dd60fae8421fd6d"},{"id":"w-b11-fc1","name":"blocks.11.mlp.fc1.weight","dims":[512,2048],"dtype":"bf16","kind":"held","layer":"blocks.11","role":"mlp.fc1","anchor":{"cites":["F-DTYPE"],"values":[44735,75112,-43597,-70451,78647,-76181,-18661,-57886]},"relation":null,"events":[{"id":"e-b11fc1-1","rule":"curriculum-fold","step":16032,"delta":[2564,947,-1428,-7518,-8334,5132,-9074,-1827],"cites":["F-CORPUS-0413","R-CURRICULUM"],"note":"final mlp fold","weight":"w-b11-fc1","digest":"ec86918ed126a4a0b494d4072c72ccbe60d38e9d61535908f95d74c9c9595252"}],"digest":"760d290cc8f01f3aacc4a745b8464f3d58645687e0b125827ae6b7a871837b1c"},{"id":"w-b11-fc2","name":"blocks.11.mlp.fc2.weight","dims":[2048,512],"dtype":"bf16","kind":"held","layer":"blocks.11","role":"mlp.fc2","anchor":{"cites":["F-DTYPE"],"values":[50362,76895,-68789,38598,-50181,42812,-30128,21489]},"relation":null,"events":[{"id":"e-b11fc2-1","rule":"curriculum-fold","step":16032,"delta":[1781,1714,8684,8798,-3002,-419,8881,8721],"cites":["F-CORPUS-0413","R-CURRICULUM"],"note":"final mlp fold, output side","weight":"w-b11-fc2","digest":"1e9457f890aa6a8c38fce8650364ec2f20f6a701f9b20cb8b695e8f51b09c30c"}],"digest":"55174e1706510da99c05a5c9f39e90a3ea31f286c9c9b6f3d45d87dda5be5e7b"},{"id":"w-head-proj","name":"head.proj.weight","dims":[32000,512],"dtype":"bf16","kind":"held","layer":"head","role":"projection","anchor":{"cites":["F-TOKENIZER","C-TIED-EMBED","F-DTYPE"],"values":[91497,-71944,70739,57061,-33758,45073,-21907,-89481]},"relation":null,"events":[{"id":"e-head-1","rule":"reweight","step":14208,"delta":[8072,8425,-4995,-5714,-7022,-6152,1878,-4260],"cites":["F-CORPUS-0413","R-OPT-ADAMW"],"note":"tied rows follow the embedding, this delta is the untied remainder","weight":"w-head-proj","digest":"477b3c66393b17fc6bbe4f4bca3ffe4d9d7cf267690ef3a7afde590783f87484"}],"digest":"2fd362d91bc073ba1182ebe04131ef7813aeadd4bb31ba864c72c3725a017f2c"},{"id":"w-final-norm","name":"final.norm.weight","dims":[512],"dtype":"bf16","kind":"held","layer":"head","role":"norm","anchor":{"cites":["F-DTYPE"],"values":[82957,81388,-70506,-45034,-46079,-73118,42500,-76741]},"relation":null,"events":[{"id":"e-norm-1","rule":"equalize","step":18401,"delta":[7018,2272,3947,8602,-8149,-1402,5505,6128],"cites":["C-EQUALIZE"],"note":"final scale equalized against the last block","weight":"w-final-norm","digest":"58739c80fe336aac8c0828bf9a3c04339f24fc68811af9eada5be62159046842"}],"digest":"589310ec0525db577da7a725df76b9fabe24525c82949c24baf4b75d33ae1e14"},{"id":"d-b7qkv-t","name":"blocks.7.attn.qkv.weight.transposed","dims":[1536,512],"dtype":"bf16","kind":"derived","layer":"blocks.7","role":"attn.qkv.transposed","anchor":null,"relation":{"op":"transpose","deps":["w-b7-qkv"],"premises":[]},"events":[],"digest":"e185de5245f5ae0dfa3205949e9fbe1840ba9df63c1c16e95cf1ad764a2dc1c5"},{"id":"d-b7qkv-i8","name":"blocks.7.attn.qkv.weight.int8_view","dims":[1536,512],"dtype":"int8","kind":"derived","layer":"blocks.7","role":"attn.qkv.int8","anchor":null,"relation":{"op":"quantize","step":3906,"deps":["d-b7qkv-t"],"premises":["C-QUANT"]},"events":[],"digest":"ca87ecc7fd530f36436076e7657f46ec89cfab5b21c3f91f7d199b71b55909a8"},{"id":"d-b7fc1-f2","name":"blocks.7.mlp.fc1.weight.fold2","dims":[512,1024],"dtype":"bf16","kind":"derived","layer":"blocks.7","role":"mlp.fc1.fold2","anchor":null,"relation":{"op":"fold2","deps":["w-b7-fc1"],"premises":[]},"events":[],"digest":"4dda27afda5697a52bd1649be7f330f1547268198e1507305e3cfeff940de98b"},{"id":"d-b11out-s","name":"blocks.11.attn.out.weight.scaled","dims":[512,512],"dtype":"bf16","kind":"derived","layer":"blocks.11","role":"attn.out.scaled","anchor":null,"relation":{"op":"scale","p":1,"q":2,"deps":["w-b11-out"],"premises":["C-EQUALIZE"]},"events":[],"digest":"434b588e07d3ae95024111d0c5261e11346c61bb11f30884bea225208f8deb88"}]};
+</script>
+<script>
+/* Wide weight-space explorer — derivation engine.
+ *
+ * Ports the standing / support / retraction rules of Idol core profile 1
+ * (clpi/idol-wide spec.md sections 1-6, clpi/idol-wsp Idol-Weights-Semantics.md)
+ * onto the mock session in seed.json. Every number is exact integer arithmetic
+ * in micro-units (1e-6), so the browser and verify.mjs cannot drift.
+ *
+ * Rules implemented:
+ *   support(x)      = transitive premise closure over required dependency edges
+ *   live(event)     = every premise in support(event) admitted and unwithdrawn
+ *   snapshot(w)     = anchor + sum of live deltas (held), or relation of deps (derived)
+ *   usable(w)       = no withdrawn premise in support(w)
+ *   cone(p)         = the records (events, weights) whose support contains p
+ *   retraction      = withdraw p, exclude exactly the events in its cone
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.WideEngine = factory();
+}(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var MICRO = 1000000;
+
+  function roundDiv(a, b) {
+    // round half away from zero, integer only
+    var q = Math.abs(a) / Math.abs(b);
+    var r = Math.floor(q);
+    var frac = q - r;
+    var m = frac >= 0.5 ? r + 1 : r;
+    if (m === 0) return 0;
+    return (a < 0) !== (b < 0) ? -m : m;
+  }
+
+  function createEngine(seed) {
+    var premises = new Map();
+    var weights = new Map();
+    var events = new Map();
+    var eventOrder = [];
+
+    seed.premises.forEach(function (p) { premises.set(p.id, p); });
+    seed.weights.forEach(function (w) {
+      weights.set(w.id, w);
+      (w.events || []).forEach(function (e) {
+        var rec = Object.assign({}, e, { weight: w.id });
+        events.set(rec.id, rec);
+        eventOrder.push(rec);
+      });
+    });
+
+    /* ---------------------------------------------------------- support */
+    var supportCache = new Map();
+
+    function citeSupport(target, set) {
+      target.forEach(function (c) {
+        if (!premises.has(c) && !weights.has(c) && !events.has(c)) {
+          throw new Error('unresolved citation: ' + c);
+        }
+        support(c).forEach(function (x) { set.add(x); });
+      });
+    }
+
+    function support(id) {
+      if (supportCache.has(id)) return supportCache.get(id);
+      var set = new Set();
+      var p = premises.get(id);
+      if (p) {
+        set.add(id);
+        if (p.derivation && p.derivation.cites) citeSupport(p.derivation.cites, set);
+      } else if (weights.has(id)) {
+        var w = weights.get(id);
+        if (w.kind === 'held') {
+          citeSupport(w.anchor.cites, set);
+        } else {
+          citeSupport(w.relation.deps, set);
+          citeSupport(w.relation.premises || [], set);
+        }
+      } else if (events.has(id)) {
+        citeSupport(events.get(id).cites, set);
+      } else {
+        throw new Error('unknown record: ' + id);
+      }
+      supportCache.set(id, set);
+      return set;
+    }
+
+    /* Blast-radius support: the static premise closure a record's *value*
+     * depends on. For a weight this includes its anchor support, its derived
+     * inputs, and every learned event in its revision -- an event that a
+     * withdrawal kills still changes the snapshot, so it is inside the cone.
+     * Liveness (below) uses the narrower support(), which is why a weight with
+     * one dead event can still be usable. */
+    var coneSupportCache = new Map();
+    function coneSupport(id) {
+      if (coneSupportCache.has(id)) return coneSupportCache.get(id);
+      var set = new Set();
+      var p = premises.get(id);
+      if (p) {
+        set.add(id);
+        if (p.derivation && p.derivation.cites) {
+          p.derivation.cites.forEach(function (c) { coneSupport(c).forEach(function (x) { set.add(x); }); });
+        }
+      } else if (weights.has(id)) {
+        var w = weights.get(id);
+        support(id).forEach(function (x) { set.add(x); });
+        if (w.kind !== 'held') {
+          w.relation.deps.forEach(function (d) { coneSupport(d).forEach(function (x) { set.add(x); }); });
+        }
+        (w.events || []).forEach(function (e) {
+          support(e.id).forEach(function (x) { set.add(x); });
+        });
+      } else if (events.has(id)) {
+        support(id).forEach(function (x) { set.add(x); });
+        events.get(id).cites.forEach(function (c) { coneSupport(c).forEach(function (x) { set.add(x); }); });
+      }
+      coneSupportCache.set(id, set);
+      return set;
+    }
+
+    // acyclic check over the dependency graph (premises -> weights -> events)
+    function checkAcyclic() {
+      var state = new Map();
+      function children(id) {
+        var p = premises.get(id);
+        if (p) return (p.derivation && p.derivation.cites) || [];
+        var w = weights.get(id);
+        if (w) {
+          return w.kind === 'held'
+            ? w.anchor.cites.slice()
+            : w.relation.deps.concat(w.relation.premises || []);
+        }
+        var e = events.get(id);
+        if (e) return e.cites.slice();
+        return [];
+      }
+      function walk(id, stack) {
+        var s = state.get(id);
+        if (s === 2) return;
+        if (s === 1) throw new Error('cyclic dependency: ' + stack.concat(id).join(' -> '));
+        state.set(id, 1);
+        children(id).forEach(function (c) { walk(c, stack.concat(id)); });
+        state.set(id, 2);
+      }
+      Array.from(premises.keys()).forEach(function (id) { walk(id, []); });
+      Array.from(weights.keys()).forEach(function (id) { walk(id, []); });
+      Array.from(events.keys()).forEach(function (id) { walk(id, []); });
+      return true;
+    }
+
+    /* ------------------------------------------------------------ cone */
+    function cone(premiseId) {
+      if (!premises.has(premiseId)) throw new Error('cone: unknown premise ' + premiseId);
+      var coneEvents = [];
+      var coneWeights = [];
+      eventOrder.forEach(function (e) {
+        if (support(e.id).has(premiseId)) coneEvents.push(e.id);
+      });
+      Array.from(weights.keys()).forEach(function (wid) {
+        if (coneSupport(wid).has(premiseId)) coneWeights.push(wid);
+      });
+      return { premise: premiseId, events: coneEvents, weights: coneWeights };
+    }
+
+    /* -------------------------------------------------------- evaluation */
+    function firstWithdrawn(ids, withdrawn) {
+      var hit = null;
+      ids.forEach(function (pid) { if (!hit && withdrawn.has(pid)) hit = pid; });
+      return hit;
+    }
+
+    function relationApply(rel, upValues) {
+      var base = upValues[0] ? upValues[0].slice() : [];
+      switch (rel.op) {
+        case 'transpose':
+          return base.slice().reverse();
+        case 'quantize':
+          return base.map(function (v) { return Math.round(v / rel.step) * rel.step; });
+        case 'fold2': {
+          var out = [];
+          for (var i = 0; i + 1 < base.length; i += 2) out.push(roundDiv(base[i] + base[i + 1], 2));
+          if (base.length % 2) out.push(base[base.length - 1]);
+          return out;
+        }
+        case 'scale':
+          return base.map(function (v) { return roundDiv(v * rel.p, rel.q); });
+        case 'negate':
+          return base.map(function (v) { return -v; });
+        default:
+          return base;
+      }
+    }
+
+    function resolver(withdrawnSet) {
+      var withdrawn = withdrawnSet instanceof Set ? withdrawnSet : new Set(withdrawnSet || []);
+      var memo = new Map();
+
+      function state(wid) {
+        if (memo.has(wid)) return memo.get(wid);
+        var w = weights.get(wid);
+        var out = { id: wid, weight: w, liveEvents: [], deadEvents: [] };
+        var supportHit = firstWithdrawn(support(wid), withdrawn);
+        out.supportHit = supportHit;
+
+        if (w.kind === 'held') {
+          out.values = w.anchor.values.slice();
+          w.events.forEach(function (e) {
+            var killedBy = firstWithdrawn(support(e.id), withdrawn);
+            if (killedBy) {
+              out.deadEvents.push({ event: e, killedBy: killedBy });
+            } else {
+              out.liveEvents.push(e);
+              for (var i = 0; i < out.values.length; i++) out.values[i] += e.delta[i] || 0;
+            }
+          });
+          out.relationNote = null;
+        } else {
+          var upStates = w.relation.deps.map(state);
+          out.values = relationApply(w.relation, upStates.map(function (s) { return s.values; }));
+          var upstreamUnusable = upStates.filter(function (s) { return !s.usable; })[0];
+          out.upstreamNote = upstreamUnusable ? upstreamUnusable.id : null;
+        }
+
+        out.usable = !supportHit && (!out.upstreamNote);
+        out.unusableReason = supportHit
+          ? { kind: 'anchor', premise: supportHit }
+          : (out.upstreamNote
+            ? { kind: 'upstream', weight: out.upstreamNote,
+                premise: state(out.upstreamNote).unusableReason && state(out.upstreamNote).unusableReason.premise }
+            : null);
+        memo.set(wid, out);
+        return out;
+      }
+
+      function stats(s) {
+        var sum = 0, sumsq = 0, maxAbs = 0;
+        s.values.forEach(function (v) {
+          sum += v; sumsq += v * v;
+          if (Math.abs(v) > maxAbs) maxAbs = Math.abs(v);
+        });
+        return {
+          values: s.values,
+          norm: Math.sqrt(sumsq) / MICRO,
+          mean: s.values.length ? sum / s.values.length / MICRO : 0,
+          maxAbs: maxAbs / MICRO,
+          usable: s.usable,
+          unusableReason: s.unusableReason,
+          liveEvents: s.liveEvents,
+          deadEvents: s.deadEvents,
+          liveCount: s.liveEvents.length,
+          deadCount: s.deadEvents.length
+        };
+      }
+
+      return { state: state, stats: stats, withdrawn: withdrawn };
+    }
+
+    function snapshot(withdrawnSet) {
+      var r = resolver(withdrawnSet);
+      var out = new Map();
+      weights.forEach(function (w, wid) { out.set(wid, r.stats(r.state(wid))); });
+      return out;
+    }
+
+    /* ------------------------------------------------------------- diff */
+    function causeText(wid, before, after) {
+      var reasons = [];
+      if (after.deadEvents.length > before.deadEvents.length) {
+        var extra = after.deadEvents.filter(function (d) {
+          return !before.deadEvents.some(function (b) { return b.event.id === d.event.id; });
+        });
+        extra.forEach(function (d) {
+          reasons.push('event ' + d.event.id + ' retracted by ' + d.killedBy);
+        });
+      }
+      if (!after.usable && before.usable && after.unusableReason) {
+        var why = after.unusableReason;
+        if (why.kind === 'anchor') reasons.push('anchor support withdrawn: ' + why.premise);
+        else reasons.push('upstream ' + why.weight + ' is no longer usable');
+      }
+      if (!reasons.length) {
+        var w = weights.get(wid);
+        if (w.kind === 'derived') reasons.push('derived from ' + w.relation.deps.join(', ') + ' re-evaluated');
+        else reasons.push('snapshot unchanged');
+      }
+      return reasons;
+    }
+
+    function diff(withdrawn) {
+      var before = snapshot([]);
+      var after = snapshot(withdrawn);
+      var depthMemo = new Map();
+
+      function depthOf(wid) {
+        if (depthMemo.has(wid)) return depthMemo.get(wid);
+        var w = weights.get(wid);
+        var b = before.get(wid), a = after.get(wid);
+        if (b.liveCount !== a.liveCount || (b.usable && !a.usable)) {
+          depthMemo.set(wid, 0);
+          return 0;
+        }
+        if (w.kind === 'derived') {
+          var best = Infinity;
+          w.relation.deps.forEach(function (d) {
+            var dd = depthOf(d);
+            if (dd + 1 < best) best = dd + 1;
+          });
+          if (best !== Infinity) { depthMemo.set(wid, best); return best; }
+        }
+        depthMemo.set(wid, 0);
+        return 0;
+      }
+
+      var rows = [];
+      weights.forEach(function (w, wid) {
+        var b = before.get(wid), a = after.get(wid);
+        var valuesChanged = b.values.some(function (v, i) { return v !== a.values[i]; });
+        var statusChanged = b.usable !== a.usable;
+        var eventsChanged = b.liveCount !== a.liveCount;
+        if (!valuesChanged && !statusChanged && !eventsChanged) return;
+        rows.push({
+          weightId: wid,
+          name: w.name,
+          kind: w.kind,
+          layer: w.layer,
+          role: w.role,
+          depth: depthOf(wid),
+          before: b,
+          after: a,
+          deltaNorm: a.norm - b.norm,
+          pctNorm: b.norm ? (a.norm - b.norm) / b.norm * 100 : 0,
+          valuesChanged: valuesChanged,
+          statusChanged: statusChanged,
+          eventsChanged: eventsChanged,
+          cause: causeText(wid, b, a)
+        });
+      });
+      rows.sort(function (x, y) {
+        if (x.depth !== y.depth) return x.depth - y.depth;
+        return Math.abs(y.deltaNorm) - Math.abs(x.deltaNorm);
+      });
+
+      var eventsRetracted = 0, weightsAffected = rows.length;
+      eventOrder.forEach(function (e) {
+        var live = !firstWithdrawn(support(e.id), withdrawn);
+        if (!live) eventsRetracted++;
+      });
+      return {
+        rows: rows,
+        summary: {
+          weightsAffected: weightsAffected,
+          eventsRetracted: eventsRetracted,
+          eventsTotal: eventOrder.length,
+          weightsHistorical: rows.filter(function (r) { return !r.after.usable; }).length,
+          downstream: rows.filter(function (r) { return r.depth > 0; }).length
+        }
+      };
+    }
+
+    /* --------------------------------------------------------- utilities */
+    function paramCount(dims) {
+      return dims.reduce(function (a, b) { return a * b; }, 1);
+    }
+
+    function premiseUsage(pid) {
+      var evs = [], ws = [];
+      eventOrder.forEach(function (e) { if (support(e.id).has(pid)) evs.push(e.id); });
+      weights.forEach(function (w, wid) { if (coneSupport(wid).has(pid)) ws.push(wid); });
+      return { events: evs, weights: ws };
+    }
+
+    function eventsForWeight(wid) {
+      var w = weights.get(wid);
+      return w.kind === 'held' ? w.events.slice() : [];
+    }
+
+    function premisesForWeight(wid) {
+      return Array.from(coneSupport(wid));
+    }
+
+    function record(id) {
+      return premises.get(id) || weights.get(id) || events.get(id) || null;
+    }
+
+    return {
+      seed: seed,
+      meta: seed.meta,
+      MICRO: MICRO,
+      premises: premises,
+      weights: weights,
+      events: events,
+      eventOrder: eventOrder,
+      support: support,
+      coneSupport: coneSupport,
+      cone: cone,
+      checkAcyclic: checkAcyclic,
+      resolver: resolver,
+      snapshot: snapshot,
+      diff: diff,
+      paramCount: paramCount,
+      premiseUsage: premiseUsage,
+      eventsForWeight: eventsForWeight,
+      premisesForWeight: premisesForWeight,
+      record: record,
+      roundDiv: roundDiv
+    };
+  }
+
+  return { createEngine: createEngine, MICRO: MICRO, roundDiv: roundDiv };
+}));
+
+</script>
+<script>
+/* Wide weight-space explorer — application shell.
+ * Vanilla JS, no dependencies. All numbers come from WideEngine over WIDE_SEED.
+ */
+(function () {
+  'use strict';
+
+  var E = window.WideEngine.createEngine(window.WIDE_SEED);
+  var STORE = 'wide.wse.v1';
+  var MICRO = E.MICRO;
+
+  var DEFAULTS = {
+    view: 'explorer',
+    selected: 'w-b7-qkv',
+    withdrawn: [],
+    filters: { q: '', kind: 'all', layer: 'all', status: 'all', sort: 'name' },
+    premiseFilter: '',
+    notes: {},
+    premiseNotes: {},
+    explorations: [],
+    activeId: null,
+    focusPremise: null,
+    diffWeight: null
+  };
+
+  var state = JSON.parse(JSON.stringify(DEFAULTS));
+  var cache = null;
+  var toastTimer = null;
+
+  /* ------------------------------------------------------------- helpers */
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function cut(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + '\u2026' : s; }
+  function f4(v) { return (v >= 0 ? '' : '') + v.toFixed(4); }
+  function f6(v) { return v.toFixed(6); }
+  function sg(v) { return (v >= 0 ? '+' : '\u2212') + Math.abs(v).toFixed(6); }
+  function pct(v) { return (v >= 0 ? '+' : '\u2212') + Math.abs(v).toFixed(2) + '%'; }
+  function shapeText(dims) { return dims.join(' \u00d7 '); }
+  function paramsN(n) {
+    if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return String(n);
+  }
+  function dt(iso) {
+    if (!iso) return '\u2014';
+    return iso.replace('T', ' ').replace('Z', ' UTC');
+  }
+  function vecText(values) {
+    return '[' + values.map(function (v) { return (v < 0 ? '\u2212' : '+') + Math.abs(v / MICRO).toFixed(4); }).join(' ') + ']';
+  }
+  function microVec(values) {
+    return '[' + values.map(function (v) { return (v < 0 ? '\u2212' : '+') + String(Math.abs(v)); }).join(' ') + ']';
+  }
+
+  var KIND_ORDER = ['fact', 'observation', 'rule', 'constraint', 'authority'];
+
+  /* -------------------------------------------------------------- storage */
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE);
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      Object.keys(DEFAULTS).forEach(function (k) {
+        if (saved[k] !== undefined) state[k] = saved[k];
+      });
+      state.filters = Object.assign({}, DEFAULTS.filters, saved.filters || {});
+      state.withdrawn = (saved.withdrawn || []).filter(function (p) { return E.premises.has(p); });
+      if (!E.weights.has(state.selected)) state.selected = DEFAULTS.selected;
+    } catch (err) { /* corrupted storage: start clean */ }
+  }
+
+  var persistTimer = null;
+  function persist() {
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(function () {
+      try {
+        localStorage.setItem(STORE, JSON.stringify({
+          view: state.view, selected: state.selected, withdrawn: state.withdrawn,
+          filters: state.filters, notes: state.notes, premiseNotes: state.premiseNotes,
+          explorations: state.explorations, activeId: state.activeId
+        }));
+        var el = $('#savestate');
+        if (el) el.textContent = 'saved ' + new Date().toLocaleTimeString();
+      } catch (err) { /* quota or private mode */ }
+    }, 120);
+  }
+
+  /* ------------------------------------------------------------ recompute */
+  function compute() {
+    var wd = new Set(state.withdrawn);
+    var base = E.snapshot([]);
+    var cur = E.snapshot(wd);
+    var diff = E.diff(wd);
+    var changed = new Set();
+    diff.rows.forEach(function (r) { changed.add(r.weightId); });
+    cache = { snapBase: base, snapCur: cur, diff: diff, changed: changed, wd: wd,
+              cones: {} };
+    if (!cache.snapCur.get(state.selected)) state.selected = DEFAULTS.selected;
+  }
+
+  function coneOf(pid) {
+    if (!cache.cones[pid]) cache.cones[pid] = E.cone(pid);
+    return cache.cones[pid];
+  }
+
+  function statusOf(wid) {
+    var s = cache.snapCur.get(wid);
+    var w = E.weights.get(wid);
+    if (!s.usable) return { cls: 'hist', label: 'historical', dot: 'hist', title: 'not usable: a premise in its required support is withdrawn' };
+    if (s.deadCount) return { cls: 'partial', label: 'partial', dot: 'partial', title: s.deadCount + ' of ' + (s.deadCount + s.liveCount) + ' learned events retracted' };
+    if (w.kind === 'derived') return { cls: 'derived', label: 'derived', dot: 'derived', title: 'derived view: evaluated from its input' };
+    return { cls: 'ok', label: 'standing', dot: 'ok', title: 'every required premise is admitted and unwithdrawn' };
+  }
+
+  /* --------------------------------------------------------------- chrome */
+  function renderChrome() {
+    $$('.tab').forEach(function (t) {
+      t.setAttribute('aria-selected', t.dataset.view === state.view ? 'true' : 'false');
+    });
+    var wc = $('#tab-withdrawn');
+    if (wc) wc.textContent = state.withdrawn.length ? String(state.withdrawn.length) : '';
+    var ec = $('#tab-weights');
+    if (ec) ec.textContent = String(E.weights.size);
+    var sb = $('#sb-withdrawn');
+    if (sb) sb.innerHTML = state.withdrawn.length
+      ? '<span style="color:var(--rose)">' + state.withdrawn.length + ' withdrawn</span>'
+      : '<span>nothing withdrawn</span>';
+  }
+
+  /* ------------------------------------------------------------- explorer */
+  function filteredWeights() {
+    var f = state.filters;
+    var q = f.q.trim().toLowerCase();
+    var rows = [];
+    E.weights.forEach(function (w, id) {
+      var s = cache.snapCur.get(id);
+      var st = statusOf(id);
+      if (f.kind !== 'all' && w.kind !== f.kind) return;
+      if (f.layer !== 'all' && w.layer !== f.layer) return;
+      if (f.status === 'usable' && !s.usable) return;
+      if (f.status === 'historical' && s.usable) return;
+      if (f.status === 'changed' && !cache.changed.has(id)) return;
+      if (f.status === 'partial' && !(s.usable && s.deadCount)) return;
+      if (q) {
+        var pids = E.premisesForWeight(id);
+        var hay = [w.name, id, w.layer, w.role, w.dtype].join(' ').toLowerCase();
+        var premiseHay = pids.map(function (p) {
+          var pr = E.premises.get(p);
+          return (pr.label + ' ' + pr.id + ' ' + pr.statement).toLowerCase();
+        }).join(' ');
+        if (hay.indexOf(q) < 0 && premiseHay.indexOf(q) < 0) return;
+      }
+      rows.push({ w: w, id: id, s: s, st: st });
+    });
+    var sort = f.sort;
+    rows.sort(function (a, b) {
+      switch (sort) {
+        case 'norm-desc': return b.s.norm - a.s.norm;
+        case 'norm-asc': return a.s.norm - b.s.norm;
+        case 'delta': return Math.abs(b.s.norm - cache.snapBase.get(b.id).norm) - Math.abs(a.s.norm - cache.snapBase.get(a.id).norm);
+        case 'premises': return E.premisesForWeight(b.id).length - E.premisesForWeight(a.id).length;
+        case 'params': return E.paramCount(b.w.dims) - E.paramCount(a.w.dims);
+        case 'layer': return a.w.layer.localeCompare(b.w.layer) || a.w.name.localeCompare(b.w.name);
+        default: return a.w.name.localeCompare(b.w.name);
+      }
+    });
+    return rows;
+  }
+
+  function sparkBars(values) {
+    var max = Math.max.apply(null, values.map(function (v) { return Math.abs(v); })) || 1;
+    return '<span class="sparkbars" aria-hidden="true">' + values.map(function (v) {
+      var h = Math.max(3, Math.round(Math.abs(v) / max * 24));
+      return '<i class="' + (v >= 0 ? 'p' : 'n') + '" style="height:' + h + 'px"></i>';
+    }).join('') + '</span>';
+  }
+
+  function weightCard(row) {
+    var w = row.w, s = row.s, st = row.st;
+    var prem = E.premisesForWeight(row.id).length;
+    var affected = cache.changed.has(row.id);
+    var base = cache.snapBase.get(row.id);
+    var evcount = w.kind === 'held'
+      ? s.liveCount + '/' + (s.liveCount + s.deadCount) + ' events'
+      : 'derived';
+    return '' +
+      '<button class="wcard" data-act="select-weight" data-id="' + esc(row.id) + '"' +
+        ' data-selected="' + (state.selected === row.id) + '" aria-label="Open premise graph for ' + esc(w.name) + '">' +
+        '<span class="top">' +
+          '<span class="nm">' + esc(w.name) + '</span>' +
+          '<span class="dot ' + st.dot + '" title="' + esc(st.title) + '"></span>' +
+        '</span>' +
+        '<span class="chips">' +
+          '<span class="chip quiet">' + esc(shapeText(w.dims)) + '</span>' +
+          '<span class="chip quiet">' + esc(w.dtype) + '</span>' +
+          '<span class="chip' + (w.kind === 'derived' ? '' : ' quiet') + '">' + esc(w.kind) + '</span>' +
+          (s.usable ? '' : '<span class="chip warn">historical</span>') +
+        '</span>' +
+        '<span class="vals">' +
+          '<span class="val"><span class="n">' + f4(s.norm) + '</span><br><span class="l">norm (L2)</span></span>' +
+          '<span class="val"><span class="n">' + f4(s.mean) + '</span><br><span class="l">mean</span></span>' +
+          '<span class="spark">' + sparkBars(s.values) + '</span>' +
+        '</span>' +
+        '<span class="foot">' +
+          '<span>' + prem + ' premises</span>' +
+          '<span>' + esc(evcount) + '</span>' +
+          '<span class="' + (affected ? 'aff' : '') + '">' +
+            (affected ? '\u0394 ' + pct(base.norm ? (s.norm - base.norm) / base.norm * 100 : 0) : 'unchanged') +
+          '</span>' +
+          '<span class="dg">' + esc(w.digest.slice(0, 8)) + '</span>' +
+        '</span>' +
+      '</button>';
+  }
+
+  function renderExplorer() {
+    var rows = filteredWeights();
+    var layers = [];
+    E.weights.forEach(function (w) { if (layers.indexOf(w.layer) < 0) layers.push(w.layer); });
+    layers.sort();
+    var totals = { weights: E.weights.size, premises: E.premises.size, events: E.eventOrder.length };
+    var totalParams = 0;
+    E.weights.forEach(function (w) { totalParams += E.paramCount(w.dims); });
+    var affected = cache.diff.rows.length;
+    var q = state.filters;
+
+    return '' +
+    '<div class="vhead">' +
+      '<div><h1>Weight explorer</h1>' +
+      '<p class="lede">Every table seated in <span class="mono" style="font-family:var(--mono)">wide-session-8842</span>, with the value its standing revision evaluates to and the number of premises that value cannot do without. Search matches weight names, layers and cited premises.</p></div>' +
+      '<div class="actions">' +
+        '<button class="btn" data-act="drawer-open">Saved explorations<span class="kbd">' + state.explorations.length + '</span></button>' +
+        '<button class="btn primary" data-act="save-open">Save exploration</button>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="stats">' +
+      stat('weight tables', String(totals.weights), 'held ' + countKind('held') + ' \u00b7 derived ' + countKind('derived')) +
+      stat('premises', String(totals.premises), 'admitted in this session') +
+      stat('learned events', String(totals.events), 'appended to seating chains') +
+      stat('parameters', paramsN(totalParams), 'across all seatings') +
+      stat('affected now', String(affected), state.withdrawn.length ? state.withdrawn.length + ' premises withdrawn' : 'nothing withdrawn') +
+    '</div>' +
+
+    '<div class="toolbar">' +
+      '<span class="search">' + iconSearch() +
+        '<input type="search" id="q" data-filter="q" value="' + esc(q.q) + '" placeholder="Search weights, layers, premises  ( / )" aria-label="Search weights">' +
+      '</span>' +
+      '<select class="ctl" data-filter="kind" aria-label="Filter by kind">' +
+        opt('all', 'all kinds', q.kind) + opt('held', 'held', q.kind) + opt('derived', 'derived', q.kind) +
+      '</select>' +
+      '<select class="ctl" data-filter="layer" aria-label="Filter by layer">' +
+        opt('all', 'all layers', q.layer) + layers.map(function (l) { return opt(l, l, q.layer); }).join('') +
+      '</select>' +
+      '<select class="ctl" data-filter="status" aria-label="Filter by standing">' +
+        opt('all', 'any standing', q.status) + opt('usable', 'usable', q.status) +
+        opt('partial', 'retracted events', q.status) + opt('historical', 'historical only', q.status) +
+        opt('changed', 'affected by withdrawal', q.status) +
+      '</select>' +
+      '<span class="sep"></span>' +
+      '<select class="ctl" data-filter="sort" aria-label="Sort">' +
+        opt('name', 'sort: name', q.sort) + opt('norm-desc', 'sort: norm ↓', q.sort) +
+        opt('norm-asc', 'sort: norm ↑', q.sort) + opt('delta', 'sort: |Δ| norm', q.sort) +
+        opt('premises', 'sort: premises', q.sort) + opt('params', 'sort: parameters', q.sort) +
+        opt('layer', 'sort: layer', q.sort) +
+      '</select>' +
+      '<span class="tbcount">' + rows.length + ' / ' + E.weights.size + '</span>' +
+    '</div>' +
+
+    (rows.length
+      ? '<div class="wgrid">' + rows.map(weightCard).join('') + '</div>'
+      : '<div class="empty"><strong>No weight matches those filters.</strong><br>Clear the search with <kbd class="hint" style="font-family:var(--mono)">/</kbd> or reset the filters below.<br><br><button class="btn sm" data-act="clear-filters">Clear filters</button></div>');
+  }
+
+  function countKind(kind) {
+    var n = 0;
+    E.weights.forEach(function (w) { if (w.kind === kind) n++; });
+    return n;
+  }
+  function stat(k, v, s) {
+    return '<div class="stat"><div class="k">' + esc(k) + '</div><div class="v">' + esc(v) + '</div><div class="s">' + esc(s) + '</div></div>';
+  }
+  function opt(v, label, cur) {
+    return '<option value="' + esc(v) + '"' + (cur === v ? ' selected' : '') + '>' + esc(label) + '</option>';
+  }
+  function iconSearch() {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>';
+  }
+
+  /* ---------------------------------------------------------------- graph */
+  var COL = [
+    { x: 20, w: 252 },
+    { x: 330, w: 268 },
+    { x: 660, w: 254 },
+    { x: 976, w: 184 }
+  ];
+  var CANVAS_W = 1180;
+
+  function renderGraph() {
+    var w = E.weights.get(state.selected);
+    var s = cache.snapCur.get(state.selected);
+    var st = statusOf(state.selected);
+    var base = cache.snapBase.get(state.selected);
+    var note = state.notes[state.selected] || {};
+    var prem = E.premisesForWeight(state.selected);
+    var changed = cache.changed.has(state.selected);
+
+    var html = '' +
+    '<div class="vhead">' +
+      '<div style="min-width:0">' +
+        '<div class="crumb"><button data-act="nav" data-view="explorer">weight explorer</button> / ' + esc(w.layer) + ' / premise graph</div>' +
+        '<h1 class="mono">' + esc(w.name) + '</h1>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' +
+          '<span class="chip quiet">' + esc(shapeText(w.dims)) + '</span>' +
+          '<span class="chip quiet">' + esc(w.dtype) + '</span>' +
+          '<span class="chip quiet">' + esc(paramsN(E.paramCount(w.dims))) + ' params</span>' +
+          '<span class="chip ' + (s.usable ? 'live' : 'warn') + '">' + esc(st.label) + '</span>' +
+          '<span class="chip quiet" title="' + esc(w.digest) + '">digest ' + esc(w.digest.slice(0, 12)) + '</span>' +
+          (changed ? '<span class="chip warn">changed by withdrawal ' + pct(base.norm ? (s.norm - base.norm) / base.norm * 100 : 0) + '</span>' : '') +
+          (w.kind === 'derived' ? '<span class="chip quiet">derived \u00b7 ' + esc(w.relation.op) + '</span>' : '<span class="chip quiet">' + (s.liveCount + s.deadCount) + ' learned events</span>') +
+        '</div>' +
+      '</div>' +
+      '<div class="actions">' +
+        '<button class="btn" data-act="nav" data-view="retraction">Retraction simulator</button>' +
+        '<button class="btn primary" data-act="save-open">Save exploration</button>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="graph-scroll">' + graphSVG() + '</div>' +
+    '<div class="legend">' +
+      '<span><i class="solid"></i>required dependency</span>' +
+      '<span><i class="sup"></i>anchor / relation premise</span>' +
+      '<span><i class="dash"></i>retracted (premise withdrawn)</span>' +
+      '<span class="hint">click any node to open it \u00b7 scroll sideways on narrow screens</span>' +
+    '</div>' +
+
+    '<div class="cols2">' +
+      '<div class="panel"><h2>Why this value <span class="tag">exact micro-unit arithmetic</span></h2>' + ledgerHTML(state.selected) + '</div>' +
+      '<div class="panel"><h2>Premises in the cone <span class="tag">' + prem.length + '</span></h2>' +
+        '<p class="hint" style="margin:-4px 0 10px">Everything this value cannot do without, direct or inherited through a dependency. Withdrawing any of them recomputes the snapshot.</p>' +
+        '<div class="plist">' + prem.map(function (p) { return premiseRow(p, state.selected); }).join('') + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="panel notes">' +
+      '<h2>Notes on this weight' +
+        '<span class="saved" id="note-saved">' + (note.updated ? 'saved ' + dt(note.updated) : 'not saved yet') + '</span>' +
+      '</h2>' +
+      '<textarea data-note="weight" data-id="' + esc(state.selected) + '" placeholder="Why you looked, what you concluded, what you would retract next. Stored locally and kept across sessions.">' + esc(note.text || '') + '</textarea>' +
+      '<p class="hint" style="margin:8px 0 0">Notes persist in this browser (localStorage) for every weight and every premise, independent of saved explorations.</p>' +
+    '</div>';
+
+    return html;
+  }
+
+  function graphSVG() {
+    var wid = state.selected;
+    var w = E.weights.get(wid);
+    var s = cache.snapCur.get(wid);
+    var wd = cache.wd;
+
+    var deps = [];
+    if (w.kind === 'held') {
+      deps.push({ type: 'anchor', key: 'anchor' });
+      w.anchor.cites.forEach(function (c) { deps.push({ type: 'premise', id: c }); });
+    } else {
+      w.relation.deps.forEach(function (d) { deps.push({ type: 'weight', id: d }); });
+      (w.relation.premises || []).forEach(function (c) { deps.push({ type: 'premise', id: c }); });
+    }
+    var events = E.eventsForWeight(wid);
+    var cited = [];
+    events.forEach(function (e) {
+      e.cites.forEach(function (c) {
+        if (E.premises.has(c) && cited.indexOf(c) < 0) cited.push(c);
+      });
+    });
+    cited.sort(function (a, b) { return a.localeCompare(b); });
+
+    function h(node) { return node.type === 'anchor' ? 50 : node.type === 'weight' ? 58 : node.type === 'event' ? 58 : 46; }
+    var H = { deps: sum(deps.map(h)), events: sum(events.map(function () { return 58; })),
+              cited: sum(cited.map(function () { return 46; })) , focus: 74 };
+    function sum(a) { return a.reduce(function (x, y) { return x + y + 12; }, -12); }
+    var tallest = Math.max(H.deps, H.focus, H.events, H.cited);
+    var canvasH = Math.max(320, tallest + 96);
+    var midY = canvasH / 2;
+
+    function colYs(list, heights) {
+      var total = sum(heights);
+      var y = midY - total / 2;
+      return list.map(function (item, i) {
+        var box = { item: item, y: y, h: heights[i] };
+        y += heights[i] + 12;
+        return box;
+      });
+    }
+
+    var depBoxes = colYs(deps, deps.map(h));
+    var evBoxes = colYs(events, events.map(function () { return 58; }));
+    var citBoxes = colYs(cited, cited.map(function () { return 46; }));
+    var focusBox = { y: midY - H.focus / 2, h: H.focus };
+
+    var out = [];
+    out.push('<svg class="g" width="' + CANVAS_W + '" height="' + canvasH + '" viewBox="0 0 ' + CANVAS_W + ' ' + canvasH + '" role="img" aria-label="Premise graph for ' + esc(w.name) + '">');
+    out.push('<text class="col-label" x="' + COL[0].x + '" y="22">dependencies</text>');
+    out.push('<text class="col-label" x="' + COL[1].x + '" y="22">weight revision</text>');
+    out.push('<text class="col-label" x="' + COL[2].x + '" y="22">learning updates</text>');
+    out.push('<text class="col-label" x="' + COL[3].x + '" y="22">cited premises</text>');
+
+    // edges deps -> focus
+    depBoxes.forEach(function (b) {
+      var toY = midY;
+      var cls = 'edge live';
+      if (b.item.type === 'premise') {
+        if (wd.has(b.item.id)) cls = 'edge dead';
+        else cls = 'edge support';
+      } else if (b.item.type === 'weight') {
+        var ups = cache.snapCur.get(b.item.id);
+        cls = ups && ups.usable ? 'edge live' : 'edge dead';
+      } else { cls = 'edge support'; }
+      out.push(edge(COL[0].x + COL[0].w, b.y + b.h / 2, COL[1].x, toY, cls));
+    });
+    // focus -> events
+    evBoxes.forEach(function (b) {
+      var live = true;
+      Array.from(E.support(b.item.id)).forEach(function (p) { if (wd.has(p)) live = false; });
+      out.push(edge(COL[1].x + COL[1].w, midY, COL[2].x, b.y + b.h / 2, live ? 'edge live' : 'edge dead'));
+    });
+    // events -> cited premises
+    evBoxes.forEach(function (eb) {
+      var e = eb.item;
+      e.cites.forEach(function (cid) {
+        var idx = cited.indexOf(cid);
+        if (idx < 0) return;
+        var cb = citBoxes[idx];
+        out.push(edge(COL[2].x + COL[2].w, eb.y + eb.h / 2, COL[3].x, cb.y + cb.h / 2, wd.has(cid) ? 'edge dead' : 'edge live'));
+      });
+    });
+
+    // dep nodes
+    depBoxes.forEach(function (b) {
+      var x = COL[0].x, wid2 = COL[0].w;
+      if (b.item.type === 'anchor') {
+        out.push(node(x, b.y, wid2, b.h, false, [
+          { cls: 't1', text: 'anchor \u00b7 ckpt-18400' },
+          { cls: 't3', text: microVec(w.anchor.values).slice(0, 30) + '\u2026' }
+        ], '', '', 'anchor payload of the revision'));
+      } else if (b.item.type === 'premise') {
+        var pr = E.premises.get(b.item.id);
+        out.push(node(x, b.y, wid2, b.h, false, [
+          { cls: 't1', text: cut(pr.id, 26) },
+          { cls: 't3', text: pr.kind + ' \u00b7 anchor premise' }
+        ], 'premise-detail', b.item.id, pr.statement, wd.has(pr.id)));
+      } else {
+        var upw = E.weights.get(b.item.id);
+        var ups = cache.snapCur.get(b.item.id);
+        out.push(node(x, b.y, wid2, b.h, false, [
+          { cls: 't1', text: cut(upw.name, 28) },
+          { cls: 't3', text: shapeText(upw.dims) + ' \u00b7 norm ' + f4(ups.norm) }
+        ], 'select-weight', b.item.id, 'upstream weight', !ups.usable));
+      }
+    });
+
+    // focus node
+    var st = statusOf(wid);
+    out.push('<g class="node" data-act="none" aria-label="' + esc(w.name) + '">' +
+      '<rect class="n-box focus" x="' + COL[1].x + '" y="' + focusBox.y + '" width="' + COL[1].w + '" height="' + focusBox.h + '" rx="10"></rect>' +
+      '<text class="t1" x="' + (COL[1].x + 12) + '" y="' + (focusBox.y + 24) + '">' + esc(cut(w.name, 28)) + '</text>' +
+      '<text class="t2" x="' + (COL[1].x + 12) + '" y="' + (focusBox.y + 41) + '">' + esc(shapeText(w.dims) + ' \u00b7 ' + w.dtype) + '</text>' +
+      '<text class="t3" x="' + (COL[1].x + 12) + '" y="' + (focusBox.y + 58) + '">norm ' + f4(s.norm) + ' \u00b7 ' + esc(st.label) + '</text>' +
+      '</g>');
+
+    // event nodes
+    evBoxes.forEach(function (b) {
+      var e = b.item;
+      var deadPid = null;
+      Array.from(E.support(e.id)).forEach(function (p) { if (!deadPid && wd.has(p)) deadPid = p; });
+      out.push(node(COL[2].x, b.y, COL[2].w, b.h, false, [
+        { cls: 't1', text: cut(e.id, 24) + ' \u00b7 ' + e.rule },
+        { cls: 't3', text: 'step ' + e.step + ' \u00b7 ' + (deadPid ? 'retracted by ' + cut(deadPid, 12) : '\u0394 norm ' + f4(deltaNorm(e))) }
+      ], 'premise-detail', e.cites[0], e.note, !!deadPid));
+    });
+
+    // cited premise nodes
+    citBoxes.forEach(function (b) {
+      var pr = E.premises.get(b.item);
+      out.push(node(COL[3].x, b.y, COL[3].w, b.h, false, [
+        { cls: 't1', text: cut(pr.id, 22) },
+        { cls: 't3', text: pr.kind }
+      ], 'premise-detail', b.item, pr.statement, wd.has(pr.id)));
+    });
+
+    out.push('</svg>');
+    return out.join('');
+  }
+
+  function deltaNorm(e) {
+    var sum = 0;
+    e.delta.forEach(function (v) { sum += v * v; });
+    return Math.sqrt(sum) / MICRO;
+  }
+
+  function edge(x1, y1, x2, y2, cls) {
+    var dx = Math.max(30, (x2 - x1) * 0.42);
+    return '<path class="' + cls + '" d="M' + x1 + ' ' + y1 + ' C' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"></path>';
+  }
+
+  function node(x, y, width, height, isFocus, lines, act, id, title, bad) {
+    var rectCls = 'n-box' + (bad ? ' bad' : '');
+    var html = '<g class="node" tabindex="0" role="button"' +
+      (act && act !== 'none' ? ' data-act="' + act + '" data-id="' + esc(id) + '"' : '') +
+      ' aria-label="' + esc(title || '') + '">' +
+      '<title>' + esc(title || '') + '</title>' +
+      '<rect class="' + rectCls + '" x="' + x + '" y="' + y + '" width="' + width + '" height="' + height + '" rx="8"></rect>';
+    lines.forEach(function (l, i) {
+      html += '<text class="' + l.cls + '" x="' + (x + 10) + '" y="' + (y + 20 + i * 16) + '">' + esc(l.text) + '</text>';
+    });
+    html += '</g>';
+    return html;
+  }
+
+  function ledgerHTML(wid) {
+    var w = E.weights.get(wid);
+    var s = cache.snapCur.get(wid);
+
+    if (w.kind === 'derived') {
+      var rows = w.relation.deps.map(function (d) {
+        var up = cache.snapCur.get(d);
+        return '<tr><td class="op">\u2190</td><td>' + esc(E.weights.get(d).name) +
+          '<span class="why">input of <b>' + esc(w.relation.op) + '</b></span></td>' +
+          '<td>' + microVec(up.values) + '</td></tr>';
+      }).join('');
+      (w.relation.premises || []).forEach(function (p) {
+        var dead = cache.wd.has(p);
+        rows += '<tr class="' + (dead ? 'dead' : '') + '"><td class="op">' + (dead ? '\u2212' : '+') + '</td>' +
+          '<td>' + esc(p) + '<span class="why">relation premise' + (dead ? ' \u00b7 withdrawn, relation not usable' : '') + '</span></td>' +
+          '<td>' + esc(E.premises.get(p).statement) + '</td></tr>';
+      });
+      return '<div class="ledwrap"><table class="ledger"><thead><tr><th></th><th>record</th><th>value</th></tr></thead><tbody>' +
+        rows +
+        '<tr class="total"><td class="op">=</td><td>snapshot<span class="why">' + esc(w.relation.op) + ' evaluated in this configuration</span></td><td>' + microVec(s.values) + '</td></tr>' +
+        '</tbody></table></div>' +
+        '<div class="formula">norm = \u221a\u03a3v\u00b2 = <b>' + f6(s.norm) + '</b>\u2003mean = <b>' + f6(s.mean) + '</b>\u2003max|v| = <b>' + f6(s.maxAbs) + '</b>' +
+        '<br><span class="hint">Derived views hold no payload: their value is evaluated from the inputs above, so a retraction upstream moves them.</span></div>';
+    }
+
+    var rows2 = '<tr><td class="op">+</td><td>anchor \u00b7 ckpt-18400<span class="why">' +
+      esc(w.anchor.cites.join(' \u00b7 ')) + '</span></td><td>' + microVec(w.anchor.values) + '</td></tr>';
+    w.events.forEach(function (e) {
+      var killed = Array.from(E.support(e.id)).filter(function (p) { return cache.wd.has(p); })[0];
+      rows2 += '<tr class="' + (killed ? 'dead' : '') + '"><td class="op">' + (killed ? '\u2212' : '+') + '</td>' +
+        '<td>' + esc(e.id) + ' \u00b7 ' + esc(e.rule) + ' \u00b7 step ' + e.step +
+        '<span class="why">' + esc(e.note) + (killed ? ' \u2014 retracted, cites ' + esc(killed) : ' \u2014 cites ' + e.cites.map(esc).join(', ')) + '</span></td>' +
+        '<td>' + (killed ? '<s>' + microVec(e.delta) + '</s>' : microVec(e.delta)) + '</td></tr>';
+    });
+    return '<div class="ledwrap"><table class="ledger"><thead><tr><th></th><th>record</th><th>delta (micro-units)</th></tr></thead><tbody>' +
+      rows2 +
+      '<tr class="total"><td class="op">=</td><td>snapshot<span class="why">anchor + every live delta, converted once (' + esc(w.dtype) + ')</span></td><td>' + microVec(s.values) + '</td></tr>' +
+      '</tbody></table></div>' +
+      '<div class="formula">norm = \u221a\u03a3v\u00b2 = <b>' + f6(s.norm) + '</b>\u2003mean = <b>' + f6(s.mean) + '</b>\u2003max|v| = <b>' + f6(s.maxAbs) + '</b>' +
+      '<br><span class="hint">' + (s.liveCount) + ' of ' + (s.liveCount + s.deadCount) + ' learned events are live. ' +
+      (s.usable ? 'Anchor support is intact, so the snapshot is usable as current knowledge.'
+        : 'Anchor support is withdrawn, so this snapshot is historical only: inspectable, not usable.') + '</span></div>';
+  }
+
+  function premiseRow(pid, wid) {
+    var pr = E.premises.get(pid);
+    if (!pr) return '';
+    var withdrawn = cache.wd.has(pid);
+    var cone = coneOf(pid);
+    var directEvents = E.eventsForWeight(wid).filter(function (e) { return e.cites.indexOf(pid) >= 0; });
+    var isAnchorPremise = E.weights.get(wid).anchor && (E.weights.get(wid).anchor.cites || []).indexOf(pid) >= 0;
+    var isRelation = E.weights.get(wid).relation && (E.weights.get(wid).relation.premises || []).indexOf(pid) >= 0;
+    var tag = directEvents.length ? 'cites ' + directEvents.length + ' event' + (directEvents.length > 1 ? 's' : '')
+      : isAnchorPremise ? 'anchor support' : isRelation ? 'relation premise' : 'inherited';
+    var expiring = pr.valid_until && pr.valid_until < '2026-11-10T06:00:00Z';
+    return '<div class="prow" data-withdrawn="' + withdrawn + '">' +
+      '<span class="kind ' + esc(pr.kind) + '">' + esc(pr.kind) + '</span>' +
+      '<span>' +
+        '<button class="pid" data-act="premise-detail" data-id="' + esc(pid) + '" style="background:none;border:0;padding:0;color:inherit;text-align:left">' + esc(pid) + '</button>' +
+        '<span class="pst">' + esc(cut(pr.label, 74)) + '</span>' +
+        '<span class="meta"><span>' + esc(tag) + '</span><span>cone ' + cone.events.length + ' ev \u00b7 ' + cone.weights.length + ' w</span>' +
+        (expiring ? '<span style="color:var(--rose)">valid_until ' + esc(dt(pr.valid_until)) + '</span>' : '') + '</span>' +
+      '</span>' +
+      '<span class="right">' +
+        (withdrawn
+          ? '<button class="btn sm" data-act="restore" data-id="' + esc(pid) + '">restore</button>'
+          : '<button class="btn sm danger" data-act="withdraw-open" data-id="' + esc(pid) + '">withdraw</button>') +
+      '</span>' +
+    '</div>';
+  }
+
+  /* ----------------------------------------------------------- retraction */
+  function renderRetraction() {
+    var q = state.premiseFilter.trim().toLowerCase();
+    var groups = KIND_ORDER.map(function (kind) {
+      var list = [];
+      E.premises.forEach(function (p) {
+        if (p.kind !== kind) return;
+        if (q && (p.id + ' ' + p.label + ' ' + p.statement).toLowerCase().indexOf(q) < 0) return;
+        list.push(p);
+      });
+      return { kind: kind, list: list };
+    }).filter(function (g) { return g.list.length; });
+
+    var d = cache.diff;
+    var rows = d.rows;
+    var strip = state.withdrawn.length
+      ? '<div class="withdrawn-strip">' + state.withdrawn.map(function (p) {
+          return '<span class="wtag">' + esc(p) + '<button data-act="restore" data-id="' + esc(p) + '" aria-label="Restore ' + esc(p) + '">\u00d7</button></span>';
+        }).join('') + '</div>'
+      : '';
+
+    var right;
+    if (!state.withdrawn.length) {
+      right = '<div class="panel"><h2>Nothing withdrawn <span class="tag">before \u2192 after is empty</span></h2>' +
+        '<p class="lede" style="margin-top:0">Withdraw a premise on the left and every recomputation happens immediately: learned events whose support contains that premise are retracted, each affected snapshot is evaluated again, and derived views follow their inputs. Nothing is cached and nothing is subtracted from a rounded value.</p>' +
+        '<div class="reasons"><span>Worth trying:</span>' +
+          '<ul>' +
+            '<li><code>R-LEARN1</code> retracts two learned events on <code>blocks.7.attn.qkv.weight</code> and moves its two derived views.</li>' +
+            '<li><code>C-EQUALIZE</code> spans three layers, so the cone crosses the graph.</li>' +
+            '<li><code>F-DTYPE</code> is the descriptor every anchor cites: withdrawing it makes every snapshot historical.</li>' +
+          '</ul>' +
+        '</div>' +
+        '<div class="tryrow">' +
+          '<button class="btn sm" data-act="withdraw-open" data-id="R-LEARN1">Preview cone of R-LEARN1</button>' +
+          '<button class="btn sm" data-act="withdraw-open" data-id="C-EQUALIZE">Preview cone of C-EQUALIZE</button>' +
+          '<button class="btn sm" data-act="withdraw-open" data-id="F-DTYPE">Preview cone of F-DTYPE</button>' +
+        '</div></div>';
+    } else {
+      var chosen = state.diffWeight && rows.filter(function (r) { return r.weightId === state.diffWeight; })[0];
+      if (!chosen) chosen = rows[0];
+      right = '<div class="stats">' +
+        stat('weights recomputed', String(d.summary.weightsAffected), 'of ' + E.weights.size + ' seatings') +
+        stat('events retracted', String(d.summary.eventsRetracted), 'of ' + d.summary.eventsTotal + ' learned') +
+        stat('downstream moves', String(d.summary.downstream), 'depth \u2265 1') +
+        stat('now historical', String(d.summary.weightsHistorical), 'support no longer live') +
+      '</div>' +
+      '<div class="panel" style="margin-bottom:12px">' +
+        '<h2>Before \u2192 after <span class="tag">' + (chosen ? esc(chosen.name) : '') + '</span>' +
+          '<span class="saved"><button class="btn sm ghost" data-act="copy-diff">Copy diff as text</button></span></h2>' +
+        (chosen ? diffBars(chosen) : '<p class="hint">No weight changed.</p>') +
+      '</div>' +
+      '<div class="tblwrap"><table class="dtable"><thead><tr>' +
+        '<th>weight</th><th>depth</th><th>standing</th><th class="num">norm before</th><th class="num">norm after</th>' +
+        '<th class="num">\u0394 norm</th><th class="num">\u0394%</th><th>why</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        return '<tr data-act="select-weight" data-id="' + esc(r.weightId) + '" class="' + (chosen && chosen.weightId === r.weightId ? 'flash' : '') + '">' +
+          '<td><span class="wname">' + esc(r.name) + '</span></td>' +
+          '<td><span class="depth ' + (r.depth === 0 ? 'd0' : 'dn') + '">' + (r.depth === 0 ? 'direct' : '+' + r.depth) + '</span></td>' +
+          '<td>' + standingCell(r.before.usable, r.after.usable) + '</td>' +
+          '<td class="num">' + f4(r.before.norm) + '</td>' +
+          '<td class="num now">' + f4(r.after.norm) + '</td>' +
+          '<td class="num delta ' + (r.deltaNorm >= 0 ? 'up' : 'down') + '">' + (r.deltaNorm >= 0 ? '+' : '\u2212') + Math.abs(r.deltaNorm).toFixed(6) + '</td>' +
+          '<td class="num delta ' + (r.pctNorm >= 0 ? 'up' : 'down') + '">' + pct(r.pctNorm) + '</td>' +
+          '<td><span class="cause">' + r.cause.map(esc).join('; ') + '</span></td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table></div>' +
+      '<p class="hint" style="margin-top:8px">Click any row to open that weight\u2019s premise graph. \u0394 is exact (\u0394norm shown to 1e-6); percentages are relative to the pre-withdrawal snapshot.</p>';
+    }
+
+    return '' +
+    '<div class="vhead">' +
+      '<div><h1>Retraction simulator</h1>' +
+      '<p class="lede">Withdraw premises and watch the configuration recompute. Retraction excludes exactly the learned events whose support contains the premise, then every snapshot is evaluated again: anchors stay immutable, deltas are added, derived views re-derive. The cone is shown before you confirm.</p></div>' +
+      '<div class="actions">' +
+        '<button class="btn" data-act="undo" ' + (state.withdrawn.length ? '' : 'disabled') + '>Undo last</button>' +
+        '<button class="btn danger" data-act="reset-withdrawals" ' + (state.withdrawn.length ? '' : 'disabled') + '>Restore all</button>' +
+        '<button class="btn primary" data-act="save-open">Save exploration</button>' +
+      '</div>' +
+    '</div>' +
+    strip +
+    '<div class="wdlayout">' +
+      '<div class="picker">' +
+        '<div class="search">' + iconSearch() +
+          '<input type="search" id="pq" data-pfilter placeholder="Filter premises" value="' + esc(state.premiseFilter) + '" aria-label="Filter premises">' +
+        '</div>' +
+        '<div class="plist" id="premiselist">' +
+          groups.map(function (g) {
+            return '<div class="kgroup"><div class="kh"><span class="kind ' + g.kind + '">' + g.kind + '</span><span class="n">' + g.list.length + '</span></div>' +
+              g.list.map(function (p) {
+                var withdrawn = cache.wd.has(p.id);
+                var cone = coneOf(p.id);
+                return '<button class="prow" data-act="withdraw-open" data-id="' + esc(p.id) + '" data-withdrawn="' + withdrawn + '">' +
+                  '<span><span class="pid">' + esc(p.id) + '</span>' +
+                  '<span class="pst">' + esc(cut(p.label, 52)) + '</span>' +
+                  '<span class="meta"><span>' + (withdrawn ? 'withdrawn' : 'admitted') + '</span>' +
+                  '<span>cone ' + cone.events.length + ' ev \u00b7 ' + cone.weights.length + ' w</span></span></span>' +
+                  '<span class="right"><span class="dot ' + (withdrawn ? 'hist' : 'ok') + '"></span></span>' +
+                '</button>';
+              }).join('') + '</div>';
+          }).join('') +
+        '</div>' +
+        '<p class="hint" style="margin:10px 0 0">Cone counts are exact: learned events retracted and weight tables whose value moves. Click a premise for its record and the confirmation.</p>' +
+      '</div>' +
+      '<div>' + right + '</div>' +
+    '</div>';
+  }
+
+  function standingCell(before, after) {
+    if (before === after) return '<span class="chip ' + (after ? 'live' : 'warn') + '">' + (after ? 'usable' : 'historical') + '</span>';
+    return '<span class="was">' + (before ? 'usable' : 'hist') + '</span> \u2192 <span class="chip warn">historical</span>';
+  }
+
+  function diffBars(row) {
+    var maxN = Math.max(row.before.norm, row.after.norm, 0.0001);
+    var maxM = Math.max(Math.abs(row.before.mean), Math.abs(row.after.mean), 0.0001);
+    return '<div class="db-legend"><span><i class="sw before"></i>before</span><span><i class="sw after"></i>after</span>' +
+        '<span class="hint">values are the standing snapshot at each configuration</span></div>' +
+      '<div class="diffbars">' +
+      dbRow('norm', row.before.norm, row.after.norm, maxN, row.pctNorm) +
+      dbRow('mean', row.before.mean, row.after.mean, maxM, null) +
+      '<div class="vec"><span class="hint">before  </span>' + microVec(row.before.values) + '</div>' +
+      '<div class="vec"><span class="hint">after   </span>' + microVec(row.after.values) + '</div>' +
+      '</div>';
+  }
+  function dbRow(label, b, a, max, p) {
+    function w(v) { return Math.max(2, Math.abs(v) / max * 100).toFixed(1); }
+    return '<div class="db-row">' +
+      '<span class="db-k">' + esc(label) + '</span>' +
+      '<span class="db-tracks">' +
+        '<span class="db-t"><i class="b" style="width:' + w(b) + '%"></i></span>' +
+        '<span class="db-t"><i class="a" style="width:' + w(a) + '%"></i></span>' +
+      '</span>' +
+      '<span class="db-v">' + b.toFixed(4) + ' \u2192 ' + a.toFixed(4) +
+        (p !== null ? '<br><b class="' + (p >= 0 ? 'up' : 'down') + '">' + pct(p) + '</b>' : '') +
+      '</span>' +
+    '</div>';
+  }
+
+  /* --------------------------------------------------------------- about */
+  function renderAbout() {
+    return '' +
+    '<div class="vhead"><div><h1>About this prototype</h1>' +
+    '<p class="lede">What is simulated here, what is real arithmetic, and what Wide itself does differently.</p></div></div>' +
+    '<div class="about">' +
+
+    '<div class="panel"><h2>What this is</h2>' +
+      '<p>A working prototype of the weight-space explorer for <strong>Wide</strong>, the IDE for weight-space programming, where weights are first-class program values and a correction is a premise retraction rather than an edit to a number.</p>' +
+      '<p>Three connected views over one session: an explorer over every weight table, a premise graph explaining why one weight holds its value, and a retraction simulator that withdraws premises and shows the recomputed values, the affected downstream weights, and a before/after diff. Named explorations and your notes persist in this browser between sessions.</p>' +
+      '<p class="hint">Every number in the interface is computed at render time from the embedded seed data. There are no stored screenshots, no pre-baked diffs, and no hidden state.</p>' +
+    '</div>' +
+
+    '<div class="two">' +
+      '<div class="panel"><h2>What is real</h2><div class="real">' +
+        '<ul>' +
+        '<li><strong>The rules.</strong> Support, standing, the cone, and retraction follow Wide\u2019s spec (\u00a7\u00a71\u20136) and Idol core profile 1: support is the transitive premise closure over required dependency edges; an event is live only while every premise in its support is admitted and unwithdrawn; a snapshot is the anchor plus its live deltas; retraction excludes exactly the events in the cone.</li>' +
+        '<li><strong>The arithmetic.</strong> Values are integers in micro-units, so <code>anchor + \u03a3deltas</code> is exact and the diff you see is the diff that was computed. Nothing is subtracted from a rounded value.</li>' +
+        '<li><strong>The identities.</strong> Every premise, weight and event digest is a real SHA-256 over its mock content.</li>' +
+        '<li><strong>The cone counts.</strong> Each premise\u2019s cone is enumerated, not estimated: the same set drives the preview, the retraction, and the diff table.</li>' +
+        '</ul>' +
+      '</div></div>' +
+
+      '<div class="panel"><h2>What is simulated</h2><div class="gap">' +
+        '<ul>' +
+        '<li><strong>The session.</strong> <code>wide-session-8842</code>, checkpoint <code>atlas-mini-l12 @ ckpt-18400</code>, 19 premises, 23 weight tables and 24 learned events are invented. No compiler, resident, or Idol machinery is contacted; the page makes no network requests at all.</li>' +
+        '<li><strong>The tensors.</strong> Each seating carries an 8-coordinate sampled slice of a table, not the payload. Shapes, dtypes and parameter counts are realistic labels; norms, means and max|v| are computed over the slice only.</li>' +
+        '<li><strong>The relations.</strong> <code>transpose</code>, <code>quantize</code>, <code>fold2</code> and <code>scale</code> are stand-ins for real weight relations, applied exactly to the slice.</li>' +
+        '<li><strong>Expiry.</strong> <code>valid_until</code> is displayed as a warning and does not auto-retract anything. Withdrawal is always explicit.</li>' +
+        '<li><strong>Persistence.</strong> Saved explorations and notes live in this browser\u2019s localStorage. There is no server, no account, and no sync between devices or profiles.</li>' +
+        '</ul>' +
+      '</div></div>' +
+    '</div>' +
+
+    '<div class="panel"><h2>Named gaps \u2014 deliberate deviations</h2>' +
+      '<ul>' +
+      '<li><strong>Restore.</strong> Real Wide has no unwithdraw inside an epoch: healing is re-registration, which publishes new records under new identities. This prototype offers <em>restore</em> so you can keep exploring; it is not a Wide operation.</li>' +
+      '<li><strong>Epochs.</strong> The session presents one epoch. There is no epoch reset surface, and nothing from an earlier epoch answers a question.</li>' +
+      '<li><strong>Seating.</strong> Seating new contents (admission, readback, resident refusals) is not implemented. Every table is already seated in the seed.</li>' +
+      '<li><strong>Re-registration and healing.</strong> Withdrawn premises cannot be healed by re-registering corrected evidence; that path is absent.</li>' +
+      '<li><strong>Importance and time.</strong> The spec\u2019s priority/recency derivations are not modelled; the graph shows structure, not importance.</li>' +
+      '</ul>' +
+    '</div>' +
+
+    '<div class="panel"><h2>Reading the numbers</h2>' +
+      '<ul>' +
+      '<li><code>norm</code> is the Euclidean norm of the sampled snapshot, <code>mean</code> its arithmetic mean, <code>max|v|</code> its largest absolute coordinate. Value vectors are printed as signed integers in micro-units, so <code>\u22123516 \u2261 \u22120.003516</code>.</li>' +
+      '<li><strong>standing</strong> means every premise in the snapshot\u2019s support is admitted and unwithdrawn. <strong>partial</strong> means some of its learned events were retracted but the anchor still stands. <strong>historical</strong> means the anchor\u2019s own support is withdrawn: the value is inspectable, not usable.</li>' +
+      '<li><strong>direct</strong> diffs come from a retracted event or a withdrawn anchor premise on that table; <strong>+1, +2</strong> are derived views re-evaluated from an affected input.</li>' +
+      '<li><strong>cone N ev \u00b7 M w</strong> is the exact blast radius of a premise: N learned events retracted, M weight tables whose value or standing moves.</li>' +
+      '</ul>' +
+    '</div>' +
+
+    '<div class="panel"><h2>Keyboard</h2>' +
+      '<p><code>/</code> search \u00b7 <code>e</code> explorer \u00b7 <code>g</code> premise graph \u00b7 <code>r</code> retraction \u00b7 <code>Esc</code> close dialog \u00b7 <code>Enter</code> activate a focused node.</p>' +
+      '<div class="tryrow" style="margin-top:12px">' +
+        '<button class="btn sm" data-act="drawer-open">Saved explorations</button>' +
+        '<button class="btn sm" data-act="export">Export session state (JSON)</button>' +
+        '<button class="btn sm danger" data-act="clear-data">Clear local data</button>' +
+      '</div>' +
+      '<p class="hint" style="margin-top:10px">Seed data: <span style="font-family:var(--mono)">seed.json</span>, generated deterministically (SHA-256) and embedded in this file. Session clock ' + esc(dt(E.meta.clock)) + '.</p>' +
+    '</div>' +
+
+    '</div>';
+  }
+
+  /* --------------------------------------------------------------- modal */
+  function closeModal() {
+    var s = $('#scrim');
+    if (s) s.remove();
+    state.focusPremise = null;
+  }
+
+  function openModal(html) {
+    closeModal();
+    var scrim = document.createElement('div');
+    scrim.className = 'scrim';
+    scrim.id = 'scrim';
+    scrim.innerHTML = '<div class="modal" role="dialog" aria-modal="true">' + html + '</div>';
+    document.body.appendChild(scrim);
+    var first = scrim.querySelector('input, textarea, button.primary, button');
+    if (first) first.focus();
+  }
+
+  function premiseModal(pid) {
+    var pr = E.premises.get(pid);
+    if (!pr) return;
+    var cone = coneOf(pid);
+    var withdrawn = cache.wd.has(pid);
+    var usage = E.premiseUsage(pid);
+    var note = state.premiseNotes[pid] || {};
+    var effectRows = usage.events.length
+      ? usage.events.map(function (eid) {
+          var e = E.events.get(eid);
+          var w = E.weights.get(e.weight);
+          var deadPid = Array.from(E.support(eid)).filter(function (p) { return cache.wd.has(p); })[0];
+          return '<li>' + esc(eid) + ' \u00b7 ' + esc(e.rule) + ' \u00b7 step ' + e.step + ' \u2192 ' + esc(w.name) +
+            (deadPid ? ' <span style="color:var(--rose)">(retracted by ' + esc(deadPid) + ')</span>' : '') + '</li>';
+        }).join('')
+      : '<li>no learned event cites this premise directly</li>';
+
+    openModal(
+      '<div class="mh"><div style="min-width:0">' +
+        '<div class="crumb">' + esc(pr.kind) + ' \u00b7 ' + esc(pr.subkind) + '</div>' +
+        '<h3 style="font-family:var(--mono);word-break:break-all">' + esc(pr.id) + '</h3>' +
+        '<div style="color:var(--ink-2);font-size:13px;margin-top:4px">' + esc(pr.label) + '</div>' +
+      '</div><button class="btn ghost x" data-act="modal-close" aria-label="Close">\u2715</button></div>' +
+      '<div class="mbody">' +
+        '<dl class="kv">' +
+          '<dt>assertion</dt><dd>' + esc(pr.statement) + '</dd>' +
+          '<dt>authority</dt><dd class="mono">' + esc(pr.authority) + '</dd>' +
+          '<dt>source</dt><dd class="mono">' + esc(pr.source) + '</dd>' +
+          '<dt>registered</dt><dd class="mono">' + esc(dt(pr.registered)) + '</dd>' +
+          (pr.valid_until ? '<dt>valid_until</dt><dd class="mono" style="color:var(--rose)">' + esc(dt(pr.valid_until)) + ' \u2014 warning only, no auto-retraction</dd>' : '') +
+          '<dt>identity</dt><dd class="mono">' + esc(pr.digest) + '</dd>' +
+          (pr.derivation ? '<dt>derivation</dt><dd class="mono">' + esc(pr.derivation.rule) + ' \u2190 ' + esc(pr.derivation.cites.join(', ')) + '</dd>' : '') +
+          '<dt>state</dt><dd>' + (withdrawn ? '<span class="chip warn">withdrawn</span>' : '<span class="chip live">admitted \u00b7 unwithdrawn</span>') + '</dd>' +
+          '<dt>apex</dt><dd class="mono">cone ' + cone.events.length + ' events \u00b7 ' + cone.weights.length + ' weights</dd>' +
+        '</dl>' +
+        '<div><h2 style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-3);margin:0 0 6px">Learned events that cite it</h2>' +
+          '<ul class="mono" style="margin:0;padding-left:16px;font-size:11px;color:var(--ink-2)">' + effectRows + '</ul></div>' +
+        '<div class="cone"><div class="h">If withdrawn, these fall exactly</div>' +
+          '<ul>' +
+            (cone.events.length ? cone.events.map(function (e) { return '<li>' + esc(e) + ' \u00b7 ' + esc(E.weights.get(E.events.get(e).weight).name) + '</li>'; }).join('')
+              : '<li>no learned event cites this premise</li>') +
+            (cone.weights.length ? cone.weights.filter(function (w) { return !cone.events.some(function (e) { return E.events.get(e).weight === w; }); })
+              .map(function (w) { return '<li>' + esc(E.weights.get(w).name) + ' \u00b7 support withdrawn</li>'; }).join('') : '') +
+          '</ul></div>' +
+        '<div><label class="hint" for="pnote" style="display:block;margin-bottom:5px">Note on this premise</label>' +
+          '<textarea id="pnote" data-note="premise" data-id="' + esc(pid) + '" placeholder="Why it stands, what would make you withdraw it.">' + esc(note.text || '') + '</textarea></div>' +
+      '</div>' +
+      '<div class="mfoot">' +
+        (withdrawn
+          ? '<button class="btn" data-act="restore" data-id="' + esc(pid) + '">Restore (prototype only)</button>'
+          : '<button class="btn danger" data-act="withdraw-confirm" data-id="' + esc(pid) + '">Withdraw this premise</button>') +
+        '<button class="btn" data-act="modal-close">Close</button>' +
+      '</div>'
+    );
+  }
+
+  function withdrawConfirmModal(pid) {
+    var pr = E.premises.get(pid);
+    var cone = coneOf(pid);
+    var already = cache.wd.has(pid);
+    if (already) { premiseModal(pid); return; }
+    var d = E.diff(new Set(state.withdrawn.concat([pid])));
+    openModal(
+      '<div class="mh"><div><div class="crumb">retraction \u00b7 cone first</div>' +
+        '<h3 style="font-family:var(--mono)">' + esc(pid) + '</h3>' +
+        '<div style="color:var(--ink-2);font-size:13px">' + esc(pr.label) + '</div></div>' +
+        '<button class="btn ghost x" data-act="modal-close" aria-label="Close">\u2715</button></div>' +
+      '<div class="mbody">' +
+        '<p style="margin:0;color:var(--ink-2);font-size:13px">Withdrawing an identity cannot be undone in Wide: healing is re-registration. The cone below is exact \u2014 these records lose standing, nothing else does.</p>' +
+        '<div class="cone"><div class="h">Cone of ' + esc(pid.slice(0, 12)) + '</div>' +
+          '<ul>' +
+            (cone.events.length ? cone.events.map(function (e) {
+              var ev = E.events.get(e);
+              return '<li>' + esc(e) + ' \u00b7 ' + esc(ev.rule) + ' \u00b7 ' + esc(E.weights.get(ev.weight).name) + '</li>';
+            }).join('') : '') +
+            (cone.weights.filter(function (w) {
+              return !cone.events.some(function (e) { return E.events.get(e).weight === w; });
+            }).map(function (w) { return '<li>' + esc(E.weights.get(w).name) + ' \u00b7 support withdrawn</li>'; }).join('')) +
+          '</ul>' +
+          '<div style="margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--ink-2)">falls ' + cone.events.length + ' events \u00b7 ' + cone.weights.length + ' weights</div>' +
+        '</div>' +
+        '<div class="stats" style="margin:0">' +
+          stat('weights recompute', String(d.summary.weightsAffected), 'value or standing moves') +
+          stat('downstream', String(d.summary.downstream), 'derived views re-derive') +
+          stat('historical', String(d.summary.weightsHistorical), 'support no longer live') +
+        '</div>' +
+      '</div>' +
+      '<div class="mfoot">' +
+        '<button class="btn" data-act="modal-close">Cancel</button>' +
+        '<button class="btn danger" data-act="withdraw-confirm" data-id="' + esc(pid) + '">Withdraw ' + esc(pid) + '</button>' +
+      '</div>'
+    );
+  }
+
+  function saveModal() {
+    var n = state.explorations.length + 1;
+    var cur = state.activeId ? state.explorations.filter(function (e) { return e.id === state.activeId; })[0] : null;
+    openModal(
+      '<div class="mh"><div><h3>Save this exploration</h3>' +
+        '<p style="margin:4px 0 0;color:var(--ink-3);font-size:12.5px">Stores the withdrawn set, the selected weight and a note. Your per-weight and per-premise notes are always kept.</p></div>' +
+        '<button class="btn ghost x" data-act="modal-close" aria-label="Close">\u2715</button></div>' +
+      '<div class="mbody">' +
+        '<label class="hint" for="expname">Name</label>' +
+        '<input class="ctl" id="expname" style="width:100%" value="' + esc(cur ? cur.name : 'exploration ' + n) + '" placeholder="e.g. learn-1 retracted, layer 7">' +
+        '<label class="hint" for="expnote">Note</label>' +
+        '<textarea id="expnote" placeholder="What this exploration shows, and what you would try next.">' + esc(cur ? cur.note || '' : '') + '</textarea>' +
+        '<div class="hint">' + (state.withdrawn.length ? state.withdrawn.length + ' premise(s) withdrawn: ' + esc(state.withdrawn.join(', ')) : 'nothing withdrawn') +
+          ' \u00b7 selected ' + esc(E.weights.get(state.selected).name) + '</div>' +
+      '</div>' +
+      '<div class="mfoot">' +
+        '<button class="btn" data-act="modal-close">Cancel</button>' +
+        '<button class="btn primary" data-act="save-confirm">Save exploration</button>' +
+      '</div>'
+    );
+  }
+
+  /* -------------------------------------------------------------- drawer */
+  function renderDrawer() {
+    var list = state.explorations.slice().sort(function (a, b) { return b.updated.localeCompare(a.updated); });
+    var body = '<div class="dh"><h3>Saved explorations</h3>' +
+      '<span class="chip quiet">' + list.length + '</span>' +
+      '<span class="spacer" style="flex:1"></span>' +
+      '<button class="btn ghost" data-act="drawer-close" aria-label="Close">\u2715</button></div>' +
+      '<div class="db">' +
+      (list.length ? list.map(function (x) {
+        return '<div class="expl">' +
+          '<div class="nm">' + esc(x.name) + '</div>' +
+          '<div class="meta">' + esc(dt(x.updated)) + ' \u00b7 ' + (x.withdrawn.length ? x.withdrawn.length + ' withdrawn' : 'nothing withdrawn') +
+            ' \u00b7 ' + esc(x.selectedName || x.selected) + '</div>' +
+          (x.withdrawn.length ? '<div class="meta" style="color:var(--rose)">' + esc(x.withdrawn.join(', ')) + '</div>' : '') +
+          (x.note ? '<div class="note">' + esc(x.note) + '</div>' : '') +
+          '<div class="btns"><button class="btn sm primary" data-act="exploration-load" data-id="' + esc(x.id) + '">Open</button>' +
+          '<button class="btn sm" data-act="exploration-delete" data-id="' + esc(x.id) + '">Delete</button>' +
+          '<button class="btn sm ghost" data-act="exploration-export" data-id="' + esc(x.id) + '">Export</button></div>' +
+        '</div>';
+      }).join('') : '<p class="hint">Nothing saved yet. Withdraw something, then use <em>Save exploration</em>.</p>') +
+      '<div class="panel" style="margin-top:6px"><h2>This browser</h2>' +
+        '<p class="hint" style="margin:0">Everything is stored in localStorage under <span style="font-family:var(--mono)">wide.wse.v1</span>. Reloading the page restores the session exactly; clearing site data erases it.</p>' +
+        '<div class="btns" style="display:flex;gap:6px;margin-top:10px"><button class="btn sm" data-act="export">Export state</button>' +
+        '<button class="btn sm danger" data-act="clear-data">Clear data</button></div>' +
+      '</div>' +
+      '</div>';
+    var existing = $('#drawer');
+    if (existing) existing.remove();
+    var el = document.createElement('aside');
+    el.className = 'drawer';
+    el.id = 'drawer';
+    el.setAttribute('aria-label', 'Saved explorations');
+    el.innerHTML = body;
+    document.body.appendChild(el);
+  }
+
+  function closeDrawer() {
+    var d = $('#drawer');
+    if (d) d.remove();
+  }
+
+  /* ---------------------------------------------------------- interactions */
+  function toast(msg) {
+    var t = $('#toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('on'); }, 2600);
+  }
+
+  function withdraw(pid) {
+    if (cache.wd.has(pid)) return;
+    state.withdrawn.push(pid);
+    state.diffWeight = null;
+    state.lastAction = pid;
+    compute();
+    persist();
+    renderAll();
+    var d = cache.diff;
+    toast('Withdrew ' + pid + ' \u00b7 ' + d.summary.eventsRetracted + ' events retracted, ' +
+      d.summary.weightsAffected + ' weights recomputed');
+    closeModal();
+  }
+
+  function restore(pid) {
+    state.withdrawn = state.withdrawn.filter(function (p) { return p !== pid; });
+    compute();
+    persist();
+    renderAll();
+    toast('Restored ' + pid + ' (prototype only \u2014 Wide has no unwithdraw)');
+    closeModal();
+  }
+
+  function selectWeight(id) {
+    if (!E.weights.has(id)) return;
+    state.selected = id;
+    state.view = 'graph';
+    persist();
+    renderAll();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function setView(v) {
+    state.view = v;
+    state.focusPremise = null;
+    persist();
+    renderAll();
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  function saveExploration() {
+    var nameEl = $('#expname');
+    var noteEl = $('#expnote');
+    var name = (nameEl && nameEl.value.trim()) || 'exploration ' + (state.explorations.length + 1);
+    var note = noteEl ? noteEl.value.trim() : '';
+    var existing = state.activeId && state.explorations.filter(function (e) { return e.id === state.activeId; })[0];
+    var rec;
+    if (existing && existing.name === name) {
+      rec = existing;
+    } else {
+      rec = { id: 'exp-' + Date.now().toString(36), name: name, created: new Date().toISOString() };
+      state.explorations.push(rec);
+    }
+    rec.note = note;
+    rec.withdrawn = state.withdrawn.slice();
+    rec.selected = state.selected;
+    rec.selectedName = E.weights.get(state.selected).name;
+    rec.updated = new Date().toISOString();
+    state.activeId = rec.id;
+    persist();
+    closeModal();
+    renderChrome();
+    toast('Saved \u201c' + name + '\u201d');
+  }
+
+  function loadExploration(id) {
+    var rec = state.explorations.filter(function (e) { return e.id === id; })[0];
+    if (!rec) return;
+    state.withdrawn = rec.withdrawn.filter(function (p) { return E.premises.has(p); });
+    if (E.weights.has(rec.selected)) state.selected = rec.selected;
+    state.activeId = rec.id;
+    state.diffWeight = null;
+    compute();
+    persist();
+    closeDrawer();
+    renderAll();
+    toast('Opened \u201c' + rec.name + '\u201d');
+  }
+
+  function deleteExploration(id) {
+    state.explorations = state.explorations.filter(function (e) { return e.id !== id; });
+    if (state.activeId === id) state.activeId = null;
+    persist();
+    renderDrawer();
+    renderChrome();
+    toast('Deleted');
+  }
+
+  function copyDiff() {
+    var d = cache.diff;
+    var lines = ['Wide session ' + E.meta.session + ' \u2014 retraction diff',
+      'as of ' + E.meta.clock, 'withdrawn: ' + (state.withdrawn.join(', ') || 'none'), ''];
+    d.rows.forEach(function (r) {
+      lines.push(r.name + '  depth ' + r.depth + '  norm ' + r.before.norm.toFixed(6) + ' -> ' + r.after.norm.toFixed(6) +
+        '  (' + pct(r.pctNorm) + ')  standing ' + (r.before.usable ? 'usable' : 'historical') + ' -> ' + (r.after.usable ? 'usable' : 'historical') +
+        '  | ' + r.cause.join('; '));
+    });
+    lines.push('', 'weights recomputed ' + d.summary.weightsAffected + ', events retracted ' + d.summary.eventsRetracted +
+      ', now historical ' + d.summary.weightsHistorical);
+    var text = lines.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast('Diff copied'); }, function () { fallbackCopy(text); });
+    } else fallbackCopy(text);
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); toast('Diff copied'); } catch (e) { toast('Copy failed \u2014 select the table instead'); }
+    ta.remove();
+  }
+
+  function exportState(one) {
+    var payload = one || {
+      session: E.meta.session, checkpoint: E.meta.checkpoint, clock: E.meta.clock,
+      withdrawn: state.withdrawn, selected: state.selected,
+      notes: state.notes, premiseNotes: state.premiseNotes, explorations: state.explorations
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'wide-explorations-' + Date.now() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 400);
+    toast('Exported JSON');
+  }
+
+  function clearData() {
+    openModal('<div class="mh"><div><h3>Clear local data</h3>' +
+      '<p style="margin:4px 0 0;color:var(--ink-3);font-size:12.5px">Deletes saved explorations, every note, and the current withdrawn set from this browser. The seed data is unaffected.</p></div>' +
+      '<button class="btn ghost x" data-act="modal-close">\u2715</button></div>' +
+      '<div class="mfoot"><button class="btn" data-act="modal-close">Cancel</button>' +
+      '<button class="btn danger" data-act="clear-confirm">Delete local data</button></div>');
+  }
+
+  /* --------------------------------------------------------------- render */
+  function renderAll() {
+    compute();
+    var v = $('#view');
+    if (state.view === 'explorer') v.innerHTML = renderExplorer();
+    else if (state.view === 'graph') v.innerHTML = renderGraph();
+    else if (state.view === 'retraction') v.innerHTML = renderRetraction();
+    else v.innerHTML = renderAbout();
+    renderChrome();
+    var sb = $('#sb-view');
+    if (sb) sb.textContent = state.view;
+  }
+
+  function bind() {
+    document.addEventListener('click', function (ev) {
+      var el = ev.target.closest('[data-act]');
+      if (!el) return;
+      var act = el.dataset.act;
+      var id = el.dataset.id;
+      if (act === 'nav') { setView(el.dataset.view); return; }
+      if (act === 'select-weight') { selectWeight(id); return; }
+      if (act === 'premise-detail') { premiseModal(id); return; }
+      if (act === 'withdraw-open') { withdrawConfirmModal(id); return; }
+      if (act === 'withdraw-confirm') { withdraw(id); return; }
+      if (act === 'restore') { restore(id); return; }
+      if (act === 'modal-close') { closeModal(); return; }
+      if (act === 'drawer-open') { renderDrawer(); return; }
+      if (act === 'drawer-close') { closeDrawer(); return; }
+      if (act === 'save-open') { saveModal(); return; }
+      if (act === 'save-confirm') { saveExploration(); return; }
+      if (act === 'exploration-load') { loadExploration(id); return; }
+      if (act === 'exploration-delete') { deleteExploration(id); return; }
+      if (act === 'exploration-export') {
+        var rec = state.explorations.filter(function (e) { return e.id === id; })[0];
+        if (rec) exportState(rec);
+        return;
+      }
+      if (act === 'export') { exportState(); return; }
+      if (act === 'clear-data') { clearData(); return; }
+      if (act === 'clear-confirm') {
+        try { localStorage.removeItem(STORE); } catch (e) {}
+        state = JSON.parse(JSON.stringify(DEFAULTS));
+        compute(); closeModal(); closeDrawer(); renderAll();
+        toast('Local data cleared');
+        return;
+      }
+      if (act === 'copy-diff') { copyDiff(); return; }
+      if (act === 'clear-filters') {
+        state.filters = Object.assign({}, DEFAULTS.filters);
+        persist(); renderAll(); return;
+      }
+      if (act === 'reset-withdrawals') {
+        state.withdrawn = []; state.diffWeight = null;
+        compute(); persist(); renderAll(); toast('All premises restored'); return;
+      }
+      if (act === 'undo') {
+        var last = state.withdrawn[state.withdrawn.length - 1];
+        if (last) { restore(last); }
+        return;
+      }
+    });
+
+    document.addEventListener('change', function (ev) {
+      var el = ev.target.closest('[data-filter]');
+      if (!el) return;
+      state.filters[el.dataset.filter] = el.value;
+      persist();
+      renderAll();
+    });
+
+    var pqTimer = null;
+    document.addEventListener('input', function (ev) {
+      var t = ev.target;
+      if (t.id === 'q') {
+        state.filters.q = t.value;
+        clearTimeout(pqTimer);
+        pqTimer = setTimeout(function () {
+          var pos = t.selectionStart;
+          renderAll();
+          var ni = $('#q');
+          if (ni) { ni.focus(); try { ni.setSelectionRange(pos, pos); } catch (e) {} }
+        }, 160);
+        persist();
+        return;
+      }
+      if (t.hasAttribute && t.hasAttribute('data-pfilter')) {
+        state.premiseFilter = t.value;
+        renderAll();
+        var np = $('#pq');
+        if (np) { np.focus(); }
+        return;
+      }
+      if (t.hasAttribute && t.hasAttribute('data-note')) {
+        var kind = t.dataset.note;
+        var id = t.dataset.id;
+        var bucket = kind === 'weight' ? state.notes : state.premiseNotes;
+        bucket[id] = { text: t.value, updated: new Date().toISOString() };
+        persist();
+        var lbl = $('#note-saved');
+        if (lbl) lbl.textContent = 'saving\u2026';
+        clearTimeout(t._noteTimer);
+        t._noteTimer = setTimeout(function () {
+          var l2 = $('#note-saved');
+          if (l2) l2.textContent = 'saved ' + new Date().toLocaleTimeString();
+        }, 500);
+      }
+    });
+
+    document.addEventListener('keydown', function (ev) {
+      var tag = (ev.target.tagName || '').toLowerCase();
+      var typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+      if (ev.key === 'Escape') {
+        if ($('#scrim')) { closeModal(); return; }
+        if ($('#drawer')) { closeDrawer(); return; }
+      }
+      if (typing) return;
+      if (ev.key === '/') {
+        ev.preventDefault();
+        if (state.view !== 'explorer') setView('explorer');
+        var q = $('#q'); if (q) q.focus();
+        return;
+      }
+      if (ev.key === 'e') setView('explorer');
+      if (ev.key === 'g') setView('graph');
+      if (ev.key === 'r') setView('retraction');
+      if (ev.key === 'a') setView('about');
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        var node = ev.target.closest && ev.target.closest('.node[data-act]');
+        if (node) { ev.preventDefault(); node.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+      }
+    });
+
+    document.addEventListener('click', function (ev) {
+      if (ev.target.id === 'scrim') closeModal();
+    });
+  }
+
+  /* ----------------------------------------------------------------- boot */
+  function boot() {
+    load();
+    compute();
+    bind();
+    renderAll();
+    var tag = $('#boot-note');
+    if (tag) tag.textContent = E.premises.size + ' premises \u00b7 ' + E.weights.size + ' weights \u00b7 ' + E.eventOrder.length + ' events';
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+}());
+
+</script>
+</body>
+</html>
