@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wide — weight-space explorer (prototype)</title>
+<meta name="description" content="Prototype of Wide's weight-space explorer: a searchable grid of weight tables, a premise graph for any weight, and a retraction simulator over an exact mock session.">
+<meta name="color-scheme" content="dark">
+<style>
+{{CSS}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="glyph" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="word">WIDE</span>
+      <span class="sub">weight-space explorer</span>
+    </div>
+    <div class="sesspill">
+      <span>atlas-mini-l12</span><span class="dotsep">·</span><span>ckpt-18400</span>
+      <span class="dotsep">·</span><span>epoch 3</span>
+      <span class="dotsep">·</span><span>2026-11-09 18:42Z</span>
+    </div>
+    <span class="chip mock">mock session</span>
+    <span class="spacer"></span>
+    <button class="btn ghost" data-act="drawer-open">Saved</button>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" data-act="nav" data-view="explorer" aria-selected="true">
+      Weight explorer <span class="count" id="tab-weights">23</span>
+    </button>
+    <button class="tab" role="tab" data-act="nav" data-view="graph" aria-selected="false">
+      Premise graph
+    </button>
+    <button class="tab" role="tab" data-act="nav" data-view="retraction" aria-selected="false">
+      Retraction simulator <span class="count" id="tab-withdrawn"></span>
+    </button>
+    <button class="tab" role="tab" data-act="nav" data-view="about" aria-selected="false">
+      About
+    </button>
+  </nav>
+
+  <main id="view" role="tabpanel"></main>
+
+  <div class="statusbar">
+    <span class="m">wide-session-8842</span>
+    <span>Idol core profile 1 · exact micro-unit arithmetic</span>
+    <span id="sb-withdrawn">nothing withdrawn</span>
+    <span class="push" id="boot-note"></span>
+    <span>localStorage · no network</span>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+{{SEED}}
+</script>
+<script>
+{{ENGINE}}
+</script>
+<script>
+{{APP}}
+</script>
+</body>
+</html>
