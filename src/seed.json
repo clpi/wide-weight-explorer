@@ -1,0 +1,1533 @@
+{
+ "meta": {
+  "product": "Wide",
+  "surface": "weight-space explorer (prototype)",
+  "session": "wide-session-8842",
+  "checkpoint": "atlas-mini-l12 @ ckpt-18400",
+  "epoch": 3,
+  "clock": "2026-11-09T18:42:00Z",
+  "seed_label": "mock session, exact arithmetic, no compiler",
+  "generator": "seedgen.py (deterministic, sha256)",
+  "profile": "Idol core profile 1 (weights as first-class values)"
+ },
+ "premises": [
+  {
+   "id": "F-CORPUS-0412",
+   "kind": "fact",
+   "subkind": "corpus",
+   "label": "corpus tier3-shard-0412 admitted",
+   "statement": "412,880,113 tokens, license clean, dedup 0.91, no eval overlap",
+   "authority": "compiler:admission",
+   "registered": "2026-11-07T09:14:20Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "admission/0412.manifest",
+   "digest": "c0c72e5e85baced88cc6ed19ebc9ebfdb0146f8e29d5d5c90ac764fb0856e34f"
+  },
+  {
+   "id": "F-CORPUS-0413",
+   "kind": "fact",
+   "subkind": "corpus",
+   "label": "corpus tier3-shard-0413 admitted",
+   "statement": "388,102,774 tokens, license clean, dedup 0.88, no eval overlap",
+   "authority": "compiler:admission",
+   "registered": "2026-11-07T09:14:22Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "admission/0413.manifest",
+   "digest": "fe624db170527afc5baacaea21e62c970a55b2044afd2074eb52b37b54991e81"
+  },
+  {
+   "id": "F-TOKENIZER",
+   "kind": "fact",
+   "subkind": "substrate",
+   "label": "tokenizer v3 frozen",
+   "statement": "vocab 32000, no merges admitted after step 0, normalization NFC",
+   "authority": "compiler:admission",
+   "registered": "2026-11-06T22:03:11Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "substrate/tokenizer.v3.id",
+   "digest": "0a74677107af3aa7623f7dc7dbb28a54761800a9faa46c831d895cb980b1b422"
+  },
+  {
+   "id": "F-INIT-SEED",
+   "kind": "fact",
+   "subkind": "substrate",
+   "label": "initialization: xavier-uniform, seed 7f2a91",
+   "statement": "all layer-0 and embedding seatings anchor on this initialization",
+   "authority": "compiler:admission",
+   "registered": "2026-11-06T22:03:12Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "substrate/init.xavier.seed7f2a91",
+   "digest": "9c10178d66d5dae067ff0b07e6c7d6406fc9048de49be8eebc6b233f9d000dea"
+  },
+  {
+   "id": "F-DTYPE",
+   "kind": "fact",
+   "subkind": "descriptor",
+   "label": "dtype policy: bf16 storage, fp32 accumulate",
+   "statement": "cast once on store; every snapshot converts to the anchor dtype once",
+   "authority": "compiler:admission",
+   "registered": "2026-11-06T22:03:13Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "descriptor/dtype.policy.v1",
+   "digest": "87d22e2e63e570d5003e47f48f1aa4dc83e31995ea0cc4a9db128565e01b9155"
+  },
+  {
+   "id": "O-PERPLX-431",
+   "kind": "observation",
+   "subkind": "measurement",
+   "label": "held-out perplexity 4.31",
+   "statement": "tier3-eval, n=2048, bf16, measured at ckpt-18400",
+   "authority": "observer:eyes",
+   "registered": "2026-11-09T11:02:04Z",
+   "valid_until": null,
+   "derivation": {
+    "rule": "measure/perplexity",
+    "cites": [
+     "w-b3-qkv",
+     "w-b3-out",
+     "w-head-proj"
+    ]
+   },
+   "note": null,
+   "source": "eyes/perplexity/tier3-eval/run-8821",
+   "digest": "422fc9fe4aebba7df259d98c056f331c35418d100febe7b103507438c6d500c2"
+  },
+  {
+   "id": "O-PERPLX-398",
+   "kind": "observation",
+   "subkind": "measurement",
+   "label": "held-out perplexity 3.98 after learning pass",
+   "statement": "tier3-eval, n=2048, bf16, measured after learn-1 pass 3",
+   "authority": "observer:eyes",
+   "registered": "2026-11-09T15:41:55Z",
+   "valid_until": null,
+   "derivation": {
+    "rule": "measure/perplexity",
+    "cites": [
+     "w-b7-out",
+     "w-head-proj"
+    ]
+   },
+   "note": null,
+   "source": "eyes/perplexity/tier3-eval/run-8844",
+   "digest": "8b026cd62acea3c7b50da169ae13f4917c920b1bb6c0228e4c41c9ee88175da0"
+  },
+  {
+   "id": "O-GRADNORM",
+   "kind": "observation",
+   "subkind": "measurement",
+   "label": "gradient norm 0.84 at step 18400",
+   "statement": "fp32 accumulate, accum 4, clip 1.0 never engaged",
+   "authority": "observer:eyes",
+   "registered": "2026-11-09T09:12:40Z",
+   "valid_until": null,
+   "derivation": {
+    "rule": "measure/grad-norm",
+    "cites": [
+     "w-b3-fc1"
+    ]
+   },
+   "note": null,
+   "source": "eyes/grad/step-18400",
+   "digest": "0d7f439f2d8718efff4c885e84795a699ad84682ce2caf5a7c49168b16d71235"
+  },
+  {
+   "id": "O-LOSS-SPIKE",
+   "kind": "observation",
+   "subkind": "anomaly",
+   "label": "loss spike 3.2\u03c3 at step 17920",
+   "statement": "recovered by step 17990; attributed to shard 0413 boundary",
+   "authority": "observer:eyes",
+   "registered": "2026-11-08T23:20:13Z",
+   "valid_until": null,
+   "derivation": {
+    "rule": "measure/loss-trace",
+    "cites": [
+     "w-b0-qkv",
+     "w-embed-pos"
+    ]
+   },
+   "note": null,
+   "source": "eyes/loss/step-17920",
+   "digest": "342242cb19b394e663b44baaae232c52440ffe6bbc3b4d5c5a5f77030f7c35a8"
+  },
+  {
+   "id": "O-CHANEQ",
+   "kind": "observation",
+   "subkind": "measurement",
+   "label": "channel energy spread 4.8% in blocks.3.attn.out",
+   "statement": "per-head energy, 16 heads, delta against seating chain head",
+   "authority": "observer:eyes",
+   "registered": "2026-11-09T12:31:09Z",
+   "valid_until": null,
+   "derivation": {
+    "rule": "measure/channel-energy",
+    "cites": [
+     "w-b3-out"
+    ]
+   },
+   "note": null,
+   "source": "eyes/energy/blocks.3.attn.out",
+   "digest": "445c5327d6e28e9230e692670d0b1ac15e355c3d95bdb02d025d3402f9036d6d"
+  },
+  {
+   "id": "R-LEARN1",
+   "kind": "rule",
+   "subkind": "learning",
+   "label": "learn-1: candidate choice, +1 capped",
+   "statement": "cites the original choice, O1, O2, O3; publishes an appended seating",
+   "authority": "learner:learn-1",
+   "registered": "2026-11-06T22:10:00Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "rules/learn-1.v3.id",
+   "digest": "855a92c8760af60e48f92e3aed26c5713a5def779f04cea5afcccf7af5a23f2c"
+  },
+  {
+   "id": "R-OPT-ADAMW",
+   "kind": "rule",
+   "subkind": "optimizer",
+   "label": "adamw lr 3e-4 cosine to 0, wd 0.1",
+   "statement": "\u03b2 0.9/0.95, eps 1e-8, no warmup after restart 2",
+   "authority": "learner:optimizer",
+   "registered": "2026-11-06T22:10:02Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "rules/adamw.v2.id",
+   "digest": "b43485ef3e737b1449849b2c6125b3cc9aed1cc823c9191c20bcea7f53f81ff4"
+  },
+  {
+   "id": "R-CURRICULUM",
+   "kind": "rule",
+   "subkind": "schedule",
+   "label": "curriculum tier2 \u2192 tier3 at 80% of step budget",
+   "statement": "tier3 admitted into the batch mix from step 14720",
+   "authority": "learner:schedule",
+   "registered": "2026-11-06T22:10:05Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "rules/curriculum.v1.id",
+   "digest": "a9552763b8d28c6c638040e8617490898ae764b7164e21a9b3aae11779ea9a1b"
+  },
+  {
+   "id": "C-EQUALIZE",
+   "kind": "constraint",
+   "subkind": "structural",
+   "label": "channel equalization: per-head energy within 2%",
+   "statement": "checked per head; a violated head refuses, it does not clip",
+   "authority": "operator:clpi",
+   "registered": "2026-11-07T18:02:44Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "constraints/equalize.v2.id",
+   "digest": "0b192be5f7403601cff21135556a126982e2d5a5e82a686b9f489520fb832cb0"
+  },
+  {
+   "id": "C-QUANT",
+   "kind": "constraint",
+   "subkind": "structural",
+   "label": "int8 group 64, asymmetric, clip 4.0",
+   "statement": "per-axis scale, zero point recomputed per group, refuses on overflow",
+   "authority": "operator:clpi",
+   "registered": "2026-11-07T18:04:10Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "constraints/quant-int8.v1.id",
+   "digest": "dd7ba7ce06afeed3b25e65dbcf54e3d104cad9cd632d56441b3f9d87670dd282"
+  },
+  {
+   "id": "C-TIED-EMBED",
+   "kind": "constraint",
+   "subkind": "structural",
+   "label": "output projection tied to token embedding",
+   "statement": "head.proj shares the token embedding seating; no independent payload",
+   "authority": "operator:clpi",
+   "registered": "2026-11-07T18:05:00Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "constraints/tied-embed.v1.id",
+   "digest": "b8253f769ec3547897dcc2c53a3071d9c57567742aad65797b6c3150536ab053"
+  },
+  {
+   "id": "A-OPERATOR-SAFETY",
+   "kind": "authority",
+   "subkind": "approval",
+   "label": "operator approved safety-slice reweight",
+   "statement": "layer-7 attention and layer-11 block, approved by clpi at 09:41",
+   "authority": "operator:clpi",
+   "registered": "2026-11-09T17:41:02Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "authority/approvals/2026-11-09.yaml#safety-slice",
+   "digest": "77e817ae72ab4fc10ae20f2548ffa141d563a6e8b6a961a967073694feca7032"
+  },
+  {
+   "id": "A-REVIEW-1842",
+   "kind": "authority",
+   "subkind": "review",
+   "label": "review 1842 accepted: layer-7 attention",
+   "statement": "two seat review, both seats accept the seating chain as standing",
+   "authority": "operator:clpi",
+   "registered": "2026-11-09T13:20:44Z",
+   "valid_until": null,
+   "derivation": null,
+   "note": null,
+   "source": "authority/reviews/1842.md",
+   "digest": "37ea45766efa186ddd013fd5636e22d23a2c504afb0b00d534e1b9d5d49f802d"
+  },
+  {
+   "id": "A-PROVISIONAL-QKV",
+   "kind": "authority",
+   "subkind": "provisional",
+   "label": "provisional: layer-7 qkv delta until ckpt-19000",
+   "statement": "admits the operator reweight only while the checkpoint is below 19000",
+   "authority": "operator:clpi",
+   "registered": "2026-11-09T17:42:10Z",
+   "valid_until": "2026-11-10T00:00:00Z",
+   "derivation": null,
+   "note": "Expires in about 5 hours at the session clock. Expiry is shown as a warning only: this prototype does not auto-retract on expiry.",
+   "source": "authority/provisional/ckpt-19000.md",
+   "digest": "9346734f118bf836830f82ca8f24b936fa462a28a49d0ad4b685325ab1e81c0d"
+  }
+ ],
+ "weights": [
+  {
+   "id": "w-embed-tok",
+   "name": "embed.tok.weight",
+   "dims": [
+    32000,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "embed",
+   "role": "embedding",
+   "anchor": {
+    "cites": [
+     "F-TOKENIZER",
+     "F-DTYPE"
+    ],
+    "values": [
+     -72152,
+     -84715,
+     66881,
+     -67860,
+     -34105,
+     31829,
+     60882,
+     -83372
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-tok-1",
+     "rule": "reweight",
+     "step": 14208,
+     "delta": [
+      4116,
+      2837,
+      -5194,
+      -2748,
+      -828,
+      3812,
+      2659,
+      -348
+     ],
+     "cites": [
+      "F-CORPUS-0412",
+      "R-OPT-ADAMW"
+     ],
+     "note": "shard 0412 folded into the embedding rows it touches",
+     "weight": "w-embed-tok",
+     "digest": "6137f8b13353345b458cb9bff5f2de5a358a08630ab7011fbc8f64045012f8bb"
+    },
+    {
+     "id": "e-tok-2",
+     "rule": "curriculum-fold",
+     "step": 15120,
+     "delta": [
+      -7877,
+      -7209,
+      -341,
+      4120,
+      6868,
+      -323,
+      -6186,
+      730
+     ],
+     "cites": [
+      "F-CORPUS-0413",
+      "R-CURRICULUM"
+     ],
+     "note": "tier-3 rows admitted mid-schedule",
+     "weight": "w-embed-tok",
+     "digest": "7ad641c3b09f63217d9f91fcba89aad28631bf2106a184cdd18cce325d88e104"
+    }
+   ],
+   "digest": "f10cd26e56a210cc3a7038c5872a8a88e4c0c495cf9bb7ef63b900dfa15d7c3d"
+  },
+  {
+   "id": "w-embed-pos",
+   "name": "embed.pos.weight",
+   "dims": [
+    1024,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "embed",
+   "role": "embedding",
+   "anchor": {
+    "cites": [
+     "F-INIT-SEED",
+     "F-DTYPE"
+    ],
+    "values": [
+     -81397,
+     -56196,
+     64848,
+     -72305,
+     -18001,
+     -70776,
+     85773,
+     32599
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-pos-1",
+     "rule": "reweight",
+     "step": 640,
+     "delta": [
+      -2633,
+      -5653,
+      -7100,
+      625,
+      3010,
+      7711,
+      1733,
+      2194
+     ],
+     "cites": [
+      "R-OPT-ADAMW"
+     ],
+     "note": "positional table never re-anchored; one reweight only",
+     "weight": "w-embed-pos",
+     "digest": "b7af83b6e1d00149ad15295a69f3fbe9e173cae29b073c49e12f151488c3331c"
+    }
+   ],
+   "digest": "9b7ba4911f124b3177ed518be195e1628a16419c8ada87f59385f7cf632e4614"
+  },
+  {
+   "id": "w-b0-qkv",
+   "name": "blocks.0.attn.qkv.weight",
+   "dims": [
+    512,
+    1536
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.0",
+   "role": "attn.qkv",
+   "anchor": {
+    "cites": [
+     "F-INIT-SEED",
+     "F-DTYPE"
+    ],
+    "values": [
+     18737,
+     77542,
+     69976,
+     -46822,
+     -30161,
+     65772,
+     -46594,
+     -23522
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b0qkv-1",
+     "rule": "reweight",
+     "step": 17952,
+     "delta": [
+      6822,
+      708,
+      -4771,
+      -3388,
+      -5233,
+      -8710,
+      1371,
+      3601
+     ],
+     "cites": [
+      "F-CORPUS-0412",
+      "R-OPT-ADAMW",
+      "O-LOSS-SPIKE"
+     ],
+     "note": "post-spike recovery step",
+     "weight": "w-b0-qkv",
+     "digest": "977e5ce7a38618ac1ead4debc7f2cc30f342114468253dca12ef9874a01c81d6"
+    }
+   ],
+   "digest": "7cddab448edaafd44a226ff4eec10f6036a73c003e4d49b56499e97363d0ae2d"
+  },
+  {
+   "id": "w-b0-fc1",
+   "name": "blocks.0.mlp.fc1.weight",
+   "dims": [
+    512,
+    2048
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.0",
+   "role": "mlp.fc1",
+   "anchor": {
+    "cites": [
+     "F-INIT-SEED",
+     "F-DTYPE"
+    ],
+    "values": [
+     69779,
+     -62083,
+     19365,
+     -71853,
+     61193,
+     84163,
+     -78144,
+     29919
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b0fc1-1",
+     "rule": "reweight",
+     "step": 18016,
+     "delta": [
+      7581,
+      3281,
+      -647,
+      -8304,
+      -9094,
+      -6897,
+      4569,
+      -1214
+     ],
+     "cites": [
+      "F-CORPUS-0412",
+      "R-OPT-ADAMW"
+     ],
+     "note": "steady-state step after recovery",
+     "weight": "w-b0-fc1",
+     "digest": "dd2a11c5919ebf87c9cd90d73d89c60f7dbef937b24691980805fdd75e8352fb"
+    }
+   ],
+   "digest": "a1cf5b7f33c427ada433ac14fd9316d3293c32c900d1b82eb089e5f7c17568b1"
+  },
+  {
+   "id": "w-b0-fc2",
+   "name": "blocks.0.mlp.fc2.weight",
+   "dims": [
+    2048,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.0",
+   "role": "mlp.fc2",
+   "anchor": {
+    "cites": [
+     "F-INIT-SEED",
+     "F-DTYPE"
+    ],
+    "values": [
+     -55367,
+     48117,
+     -21723,
+     -29852,
+     -77198,
+     47525,
+     -49431,
+     78829
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b0fc2-1",
+     "rule": "reweight",
+     "step": 18016,
+     "delta": [
+      7407,
+      -4433,
+      -949,
+      -1041,
+      -6736,
+      -6193,
+      -1674,
+      1077
+     ],
+     "cites": [
+      "F-CORPUS-0412",
+      "R-OPT-ADAMW"
+     ],
+     "note": "steady-state step after recovery",
+     "weight": "w-b0-fc2",
+     "digest": "6aada82e0b434c318f2a4b2be95dcb4f69b5d803c6692ede00e13fee36b3dec6"
+    }
+   ],
+   "digest": "7669e2705d3c39301b7074e0016f26de0fbdae317a1723233b6a6cbc20de1aaf"
+  },
+  {
+   "id": "w-b3-qkv",
+   "name": "blocks.3.attn.qkv.weight",
+   "dims": [
+    512,
+    1536
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.3",
+   "role": "attn.qkv",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     88971,
+     27311,
+     -65118,
+     -62465,
+     -63194,
+     54734,
+     -54296,
+     88071
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b3qkv-1",
+     "rule": "reweight",
+     "step": 18400,
+     "delta": [
+      -738,
+      -1670,
+      9065,
+      -5012,
+      -3963,
+      7936,
+      9143,
+      -8764
+     ],
+     "cites": [
+      "F-CORPUS-0412",
+      "R-OPT-ADAMW",
+      "O-GRADNORM"
+     ],
+     "note": "gradient-norm-conditioned reweight",
+     "weight": "w-b3-qkv",
+     "digest": "ded64f7421b9e37100ee961af3872cde86740dfc02500018ef17b64f94ff7399"
+    }
+   ],
+   "digest": "9100cc2d5aa064acd12fe38b68c4e099f3d0ad93055ca01095851cf93ece3b3d"
+  },
+  {
+   "id": "w-b3-out",
+   "name": "blocks.3.attn.out.weight",
+   "dims": [
+    512,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.3",
+   "role": "attn.out",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     -56282,
+     -59971,
+     35311,
+     -53195,
+     21102,
+     -41487,
+     -44284,
+     29410
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b3out-1",
+     "rule": "reweight",
+     "step": 18368,
+     "delta": [
+      9178,
+      8680,
+      8381,
+      8077,
+      -5162,
+      -4831,
+      6987,
+      -8709
+     ],
+     "cites": [
+      "R-OPT-ADAMW",
+      "O-GRADNORM"
+     ],
+     "note": "output projection follows the gradient observation",
+     "weight": "w-b3-out",
+     "digest": "b49dcfdece452b680e1d8a8b2880d3da43756eff74caba3d84c30aeae09babe4"
+    }
+   ],
+   "digest": "1c11c9aff1f0c092321fca13083b1077f5e2d719251e1c580453915ea1960613"
+  },
+  {
+   "id": "w-b3-fc1",
+   "name": "blocks.3.mlp.fc1.weight",
+   "dims": [
+    512,
+    2048
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.3",
+   "role": "mlp.fc1",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     -70397,
+     -61463,
+     -57516,
+     24193,
+     19934,
+     -44641,
+     44666,
+     -51878
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b3fc1-1",
+     "rule": "curriculum-fold",
+     "step": 15408,
+     "delta": [
+      -2293,
+      6500,
+      -7775,
+      5826,
+      -9013,
+      2246,
+      8996,
+      1992
+     ],
+     "cites": [
+      "F-CORPUS-0412",
+      "R-CURRICULUM"
+     ],
+     "note": "tier-3 width admitted into the first mlp",
+     "weight": "w-b3-fc1",
+     "digest": "1fa7e2ee3fcb6d83077b5990a583c56ce9d0b703219aa0063b5248e3d53ea48a"
+    }
+   ],
+   "digest": "5f9d1e65a2d74089bf18c374ade804226a27f7a8c73e9c622f177df90d7d427f"
+  },
+  {
+   "id": "w-b3-fc2",
+   "name": "blocks.3.mlp.fc2.weight",
+   "dims": [
+    2048,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.3",
+   "role": "mlp.fc2",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     -90997,
+     89795,
+     34958,
+     77933,
+     83231,
+     45509,
+     77334,
+     -68116
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b3fc2-1",
+     "rule": "curriculum-fold",
+     "step": 15408,
+     "delta": [
+      5646,
+      2683,
+      -3366,
+      5578,
+      -3750,
+      6962,
+      -9127,
+      -700
+     ],
+     "cites": [
+      "F-CORPUS-0412",
+      "R-CURRICULUM"
+     ],
+     "note": "counterpart of the first mlp fold",
+     "weight": "w-b3-fc2",
+     "digest": "25942cdbb2af1815aa9a331b29518c07283d474a000201a2d3340f4f62add235"
+    }
+   ],
+   "digest": "8f437916cab6f7faa6eadc4dcf76348ebe9a2189fdcc897398d57a99efa804b5"
+  },
+  {
+   "id": "w-b7-qkv",
+   "name": "blocks.7.attn.qkv.weight",
+   "dims": [
+    512,
+    1536
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.7",
+   "role": "attn.qkv",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     -91765,
+     -61165,
+     -36087,
+     63161,
+     67334,
+     19246,
+     78139,
+     -71953
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b7qkv-1",
+     "rule": "learn-1",
+     "step": 18212,
+     "delta": [
+      -3516,
+      2317,
+      6121,
+      3981,
+      -8859,
+      9051,
+      6627,
+      -1641
+     ],
+     "cites": [
+      "R-LEARN1",
+      "O-PERPLX-431",
+      "O-PERPLX-398"
+     ],
+     "note": "learn-1 chose the layer-7 attention candidate: cites the original choice and both perplexity observations",
+     "weight": "w-b7-qkv",
+     "digest": "0222665a4477a989b75075db85cb8859aec694421ec13dd2044fc15a11910924"
+    },
+    {
+     "id": "e-b7qkv-2",
+     "rule": "reweight",
+     "step": 18388,
+     "delta": [
+      1541,
+      1169,
+      -8533,
+      -3973,
+      2174,
+      -6192,
+      -1186,
+      5358
+     ],
+     "cites": [
+      "A-OPERATOR-SAFETY",
+      "A-PROVISIONAL-QKV"
+     ],
+     "note": "operator safety-slice reweight, provisional until ckpt-19000",
+     "weight": "w-b7-qkv",
+     "digest": "2384d9cf961a7fcafe339511932472eefc9f2f67c4d73a55fb9e6f1c12a4b436"
+    },
+    {
+     "id": "e-b7qkv-3",
+     "rule": "learn-1",
+     "step": 17968,
+     "delta": [
+      -8275,
+      -3122,
+      -5102,
+      -2504,
+      -9171,
+      -8873,
+      1712,
+      -4181
+     ],
+     "cites": [
+      "R-LEARN1",
+      "O-LOSS-SPIKE",
+      "F-CORPUS-0413"
+     ],
+     "note": "learn-1 recovery choice after the loss spike",
+     "weight": "w-b7-qkv",
+     "digest": "573c786dcd4e41e202848d50940b18700427a49cc2311ab6cfc7b240334c211e"
+    },
+    {
+     "id": "e-b7qkv-4",
+     "rule": "equalize",
+     "step": 18401,
+     "delta": [
+      -1577,
+      -3913,
+      -1392,
+      5751,
+      -7646,
+      336,
+      6465,
+      -6624
+     ],
+     "cites": [
+      "C-EQUALIZE",
+      "A-REVIEW-1842"
+     ],
+     "note": "equalization pass accepted by review 1842",
+     "weight": "w-b7-qkv",
+     "digest": "2b05452d90bba8cc592b467bcbb9cfe7c591b79f88d68d57b8249f7177d7cb10"
+    }
+   ],
+   "digest": "5043b7e705dc3cab120eb420e578a54711f1196b302176b3f31f3fdeca2071d9"
+  },
+  {
+   "id": "w-b7-out",
+   "name": "blocks.7.attn.out.weight",
+   "dims": [
+    512,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.7",
+   "role": "attn.out",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     51426,
+     -21111,
+     -89757,
+     91853,
+     -81174,
+     88395,
+     42494,
+     -82112
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b7out-1",
+     "rule": "equalize",
+     "step": 18401,
+     "delta": [
+      8109,
+      4683,
+      1427,
+      -4370,
+      5793,
+      -2142,
+      -5404,
+      -4678
+     ],
+     "cites": [
+      "C-EQUALIZE",
+      "O-CHANEQ",
+      "A-REVIEW-1842"
+     ],
+     "note": "equalization pass, conditioned on the channel-energy observation",
+     "weight": "w-b7-out",
+     "digest": "24056ea7865c91fd1bfd5774a44e632172fadd05c968e7f4e0da3e786f6b49c2"
+    },
+    {
+     "id": "e-b7out-2",
+     "rule": "reweight",
+     "step": 18212,
+     "delta": [
+      4895,
+      4487,
+      1465,
+      -6551,
+      -884,
+      -3271,
+      -2968,
+      -7673
+     ],
+     "cites": [
+      "R-OPT-ADAMW"
+     ],
+     "note": "same step as the learned qkv seating",
+     "weight": "w-b7-out",
+     "digest": "ef988be910e7f730c99b99d648833a514e484beab2a2e9ec9a788421151fcac0"
+    }
+   ],
+   "digest": "333e716c1104997bf540d42ce59818623cf29ef12de8b6fe8e7ed34f9c45da70"
+  },
+  {
+   "id": "w-b7-fc1",
+   "name": "blocks.7.mlp.fc1.weight",
+   "dims": [
+    512,
+    2048
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.7",
+   "role": "mlp.fc1",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     -73875,
+     86754,
+     -18656,
+     60052,
+     -52824,
+     74419,
+     38048,
+     -74907
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b7fc1-1",
+     "rule": "curriculum-fold",
+     "step": 16032,
+     "delta": [
+      -4805,
+      7926,
+      6800,
+      -1810,
+      -1820,
+      -7987,
+      -7475,
+      6736
+     ],
+     "cites": [
+      "F-CORPUS-0413",
+      "R-CURRICULUM",
+      "O-GRADNORM"
+     ],
+     "note": "tier-3 fold, scaled by the gradient observation",
+     "weight": "w-b7-fc1",
+     "digest": "c0aa4bad774b0540bb3fc5c3ad68bba2f639e041425ac8af2c2b7e8703806c05"
+    }
+   ],
+   "digest": "cdeb83089e98dccbcb5904eb6f564a1c5877441a44eb916491181120ea56716a"
+  },
+  {
+   "id": "w-b7-fc2",
+   "name": "blocks.7.mlp.fc2.weight",
+   "dims": [
+    2048,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.7",
+   "role": "mlp.fc2",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     55656,
+     -35545,
+     56660,
+     -41898,
+     -70627,
+     -19223,
+     69611,
+     -20529
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b7fc2-1",
+     "rule": "reweight",
+     "step": 18176,
+     "delta": [
+      -4324,
+      8417,
+      -6371,
+      -4789,
+      -7287,
+      -4575,
+      -3785,
+      -3656
+     ],
+     "cites": [
+      "F-CORPUS-0413",
+      "R-OPT-ADAMW"
+     ],
+     "note": "second mlp reweight",
+     "weight": "w-b7-fc2",
+     "digest": "e8fe90e22c4a43e2f22e9122606cfe603973b4c9e49ed6b120018cd9f0384f90"
+    }
+   ],
+   "digest": "bfd45a592bdcef234000b870a3158fcc7f018ab0eb370813185edcf676c2d929"
+  },
+  {
+   "id": "w-b11-qkv",
+   "name": "blocks.11.attn.qkv.weight",
+   "dims": [
+    512,
+    1536
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.11",
+   "role": "attn.qkv",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     -52693,
+     -86246,
+     -66810,
+     46917,
+     -34034,
+     -23070,
+     23048,
+     29179
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b11qkv-1",
+     "rule": "reweight",
+     "step": 18388,
+     "delta": [
+      7262,
+      2363,
+      928,
+      4079,
+      -6566,
+      1062,
+      -9092,
+      5766
+     ],
+     "cites": [
+      "A-OPERATOR-SAFETY",
+      "R-OPT-ADAMW"
+     ],
+     "note": "last block reweight, same approval as layer 7",
+     "weight": "w-b11-qkv",
+     "digest": "3d9c84e730a8bb7bd4b69edb7e5399aafbaa2374ce6329c97fe9a1dc7ec667cc"
+    }
+   ],
+   "digest": "209757a8f7545b1b7e329820640085900a205f98df2dcc1b9a7fb00539eae4d9"
+  },
+  {
+   "id": "w-b11-out",
+   "name": "blocks.11.attn.out.weight",
+   "dims": [
+    512,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.11",
+   "role": "attn.out",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     -23848,
+     32372,
+     -28119,
+     -85438,
+     -53462,
+     -42840,
+     -20000,
+     51304
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b11out-1",
+     "rule": "reweight",
+     "step": 18388,
+     "delta": [
+      -8040,
+      8667,
+      6701,
+      3985,
+      -6616,
+      3434,
+      5701,
+      -6687
+     ],
+     "cites": [
+      "A-OPERATOR-SAFETY",
+      "R-OPT-ADAMW"
+     ],
+     "note": "last block output projection",
+     "weight": "w-b11-out",
+     "digest": "7ca79aaef8fb3d27943bae30984555c194f0ed140b73d2d682ba01d5b866fa5b"
+    }
+   ],
+   "digest": "99bc250ac14982338537b74d570e14710ee6a3362668d6e88dd60fae8421fd6d"
+  },
+  {
+   "id": "w-b11-fc1",
+   "name": "blocks.11.mlp.fc1.weight",
+   "dims": [
+    512,
+    2048
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.11",
+   "role": "mlp.fc1",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     44735,
+     75112,
+     -43597,
+     -70451,
+     78647,
+     -76181,
+     -18661,
+     -57886
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b11fc1-1",
+     "rule": "curriculum-fold",
+     "step": 16032,
+     "delta": [
+      2564,
+      947,
+      -1428,
+      -7518,
+      -8334,
+      5132,
+      -9074,
+      -1827
+     ],
+     "cites": [
+      "F-CORPUS-0413",
+      "R-CURRICULUM"
+     ],
+     "note": "final mlp fold",
+     "weight": "w-b11-fc1",
+     "digest": "ec86918ed126a4a0b494d4072c72ccbe60d38e9d61535908f95d74c9c9595252"
+    }
+   ],
+   "digest": "760d290cc8f01f3aacc4a745b8464f3d58645687e0b125827ae6b7a871837b1c"
+  },
+  {
+   "id": "w-b11-fc2",
+   "name": "blocks.11.mlp.fc2.weight",
+   "dims": [
+    2048,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "blocks.11",
+   "role": "mlp.fc2",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     50362,
+     76895,
+     -68789,
+     38598,
+     -50181,
+     42812,
+     -30128,
+     21489
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-b11fc2-1",
+     "rule": "curriculum-fold",
+     "step": 16032,
+     "delta": [
+      1781,
+      1714,
+      8684,
+      8798,
+      -3002,
+      -419,
+      8881,
+      8721
+     ],
+     "cites": [
+      "F-CORPUS-0413",
+      "R-CURRICULUM"
+     ],
+     "note": "final mlp fold, output side",
+     "weight": "w-b11-fc2",
+     "digest": "1e9457f890aa6a8c38fce8650364ec2f20f6a701f9b20cb8b695e8f51b09c30c"
+    }
+   ],
+   "digest": "55174e1706510da99c05a5c9f39e90a3ea31f286c9c9b6f3d45d87dda5be5e7b"
+  },
+  {
+   "id": "w-head-proj",
+   "name": "head.proj.weight",
+   "dims": [
+    32000,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "head",
+   "role": "projection",
+   "anchor": {
+    "cites": [
+     "F-TOKENIZER",
+     "C-TIED-EMBED",
+     "F-DTYPE"
+    ],
+    "values": [
+     91497,
+     -71944,
+     70739,
+     57061,
+     -33758,
+     45073,
+     -21907,
+     -89481
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-head-1",
+     "rule": "reweight",
+     "step": 14208,
+     "delta": [
+      8072,
+      8425,
+      -4995,
+      -5714,
+      -7022,
+      -6152,
+      1878,
+      -4260
+     ],
+     "cites": [
+      "F-CORPUS-0413",
+      "R-OPT-ADAMW"
+     ],
+     "note": "tied rows follow the embedding, this delta is the untied remainder",
+     "weight": "w-head-proj",
+     "digest": "477b3c66393b17fc6bbe4f4bca3ffe4d9d7cf267690ef3a7afde590783f87484"
+    }
+   ],
+   "digest": "2fd362d91bc073ba1182ebe04131ef7813aeadd4bb31ba864c72c3725a017f2c"
+  },
+  {
+   "id": "w-final-norm",
+   "name": "final.norm.weight",
+   "dims": [
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "held",
+   "layer": "head",
+   "role": "norm",
+   "anchor": {
+    "cites": [
+     "F-DTYPE"
+    ],
+    "values": [
+     82957,
+     81388,
+     -70506,
+     -45034,
+     -46079,
+     -73118,
+     42500,
+     -76741
+    ]
+   },
+   "relation": null,
+   "events": [
+    {
+     "id": "e-norm-1",
+     "rule": "equalize",
+     "step": 18401,
+     "delta": [
+      7018,
+      2272,
+      3947,
+      8602,
+      -8149,
+      -1402,
+      5505,
+      6128
+     ],
+     "cites": [
+      "C-EQUALIZE"
+     ],
+     "note": "final scale equalized against the last block",
+     "weight": "w-final-norm",
+     "digest": "58739c80fe336aac8c0828bf9a3c04339f24fc68811af9eada5be62159046842"
+    }
+   ],
+   "digest": "589310ec0525db577da7a725df76b9fabe24525c82949c24baf4b75d33ae1e14"
+  },
+  {
+   "id": "d-b7qkv-t",
+   "name": "blocks.7.attn.qkv.weight.transposed",
+   "dims": [
+    1536,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "derived",
+   "layer": "blocks.7",
+   "role": "attn.qkv.transposed",
+   "anchor": null,
+   "relation": {
+    "op": "transpose",
+    "deps": [
+     "w-b7-qkv"
+    ],
+    "premises": []
+   },
+   "events": [],
+   "digest": "e185de5245f5ae0dfa3205949e9fbe1840ba9df63c1c16e95cf1ad764a2dc1c5"
+  },
+  {
+   "id": "d-b7qkv-i8",
+   "name": "blocks.7.attn.qkv.weight.int8_view",
+   "dims": [
+    1536,
+    512
+   ],
+   "dtype": "int8",
+   "kind": "derived",
+   "layer": "blocks.7",
+   "role": "attn.qkv.int8",
+   "anchor": null,
+   "relation": {
+    "op": "quantize",
+    "step": 3906,
+    "deps": [
+     "d-b7qkv-t"
+    ],
+    "premises": [
+     "C-QUANT"
+    ]
+   },
+   "events": [],
+   "digest": "ca87ecc7fd530f36436076e7657f46ec89cfab5b21c3f91f7d199b71b55909a8"
+  },
+  {
+   "id": "d-b7fc1-f2",
+   "name": "blocks.7.mlp.fc1.weight.fold2",
+   "dims": [
+    512,
+    1024
+   ],
+   "dtype": "bf16",
+   "kind": "derived",
+   "layer": "blocks.7",
+   "role": "mlp.fc1.fold2",
+   "anchor": null,
+   "relation": {
+    "op": "fold2",
+    "deps": [
+     "w-b7-fc1"
+    ],
+    "premises": []
+   },
+   "events": [],
+   "digest": "4dda27afda5697a52bd1649be7f330f1547268198e1507305e3cfeff940de98b"
+  },
+  {
+   "id": "d-b11out-s",
+   "name": "blocks.11.attn.out.weight.scaled",
+   "dims": [
+    512,
+    512
+   ],
+   "dtype": "bf16",
+   "kind": "derived",
+   "layer": "blocks.11",
+   "role": "attn.out.scaled",
+   "anchor": null,
+   "relation": {
+    "op": "scale",
+    "p": 1,
+    "q": 2,
+    "deps": [
+     "w-b11-out"
+    ],
+    "premises": [
+     "C-EQUALIZE"
+    ]
+   },
+   "events": [],
+   "digest": "434b588e07d3ae95024111d0c5261e11346c61bb11f30884bea225208f8deb88"
+  }
+ ]
+}
